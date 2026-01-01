@@ -778,7 +778,23 @@ async function main() {
   const anchors = { ...(rootSpec.anchors || {}) }
 
   const browser = await chromium.launch({ headless: process.env.HEADLESS !== '0' })
-  const page = await browser.newPage()
+  
+  // 检测是否为 H5 移动端页面，自动启用移动端模拟
+  const isH5 = rootSpec.metadata?.framework === 'uni-app' || 
+               rootSpec.env?.base_url?.includes('/h5') ||
+               process.env.MOBILE_EMULATION === '1'
+  
+  const contextOptions = isH5 ? {
+    // iPhone 12 Pro 模拟
+    viewport: { width: 390, height: 844 },
+    userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0 Mobile/15E148 Safari/604.1',
+    deviceScaleFactor: 3,
+    isMobile: true,
+    hasTouch: true
+  } : {}
+  
+  const context = await browser.newContext(contextOptions)
+  const page = await context.newPage()
   try {
     try {
       await runSpec(specPath, page, anchors)
