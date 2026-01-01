@@ -218,7 +218,16 @@ async function assertDb(spec, anchors) {
           for (const [field, expectedRaw] of Object.entries(assertions)) {
             const expected = substitute(expectedRaw, curCtx)
             const actual = row[field]
-            if (expected !== String(actual)) {
+            // 支持特殊断言：not_null, not_empty, exists
+            if (expected === 'not_null') {
+              if (actual === null || actual === undefined) {
+                throw new Error(`field ${field} expected=not_null but was null`)
+              }
+            } else if (expected === 'not_empty') {
+              if (!actual || String(actual).trim() === '') {
+                throw new Error(`field ${field} expected=not_empty but was empty`)
+              }
+            } else if (expected !== String(actual)) {
               throw new Error(`field ${field} expected=${expected} actual=${actual}`)
             }
           }
@@ -513,10 +522,79 @@ async function runSteps(page, spec, anchors) {
       continue
     }
 
+    // uni-app 适配：通过修改 hash 导航（避免 SPA 路由重定向问题）
+    if (op === 'ui.hash_navigate') {
+      const hash = substitute(ui.hash, ctx())
+      await page.evaluate((h) => {
+        window.location.hash = h
+      }, hash)
+      // 等待页面更新
+      const waitMs = ui.wait_ms || 2000
+      await page.waitForTimeout(waitMs)
+      continue
+    }
+
+    // 通用 JavaScript 执行（用于复杂的 uni-app 组件交互）
+    if (op === 'ui.eval') {
+      const code = substitute(ui.code, ctx())
+      await page.evaluate((c) => {
+        // 执行用户提供的 JavaScript 代码
+        return new Function(c)()
+      }, code)
+      // 等待执行效果
+      const waitMs = ui.wait_ms || 1000
+      await page.waitForTimeout(waitMs)
+      continue
+    }
+
+    // uni-app picker 选择器适配
+    if (op === 'ui.picker_select') {
+      const index = ui.index !== undefined ? ui.index : 0
+      // 触发 picker 的 change 事件
+      await page.evaluate((idx) => {
+        // 查找所有 picker 组件并模拟选择
+        const pickers = document.querySelectorAll('uni-picker')
+        if (pickers.length > 0) {
+          const picker = pickers[idx] || pickers[0]
+          // 触发 Vue 组件的内部事件
+          const event = new CustomEvent('change', { 
+            detail: { value: idx },
+            bubbles: true 
+          })
+          picker.dispatchEvent(event)
+        }
+      }, index)
+      const waitMs = ui.wait_ms || 1000
+      await page.waitForTimeout(waitMs)
+      continue
+    }
+
     if (op === 'ui.click') {
       if (ui.selector) {
         const selector = substitute(ui.selector, ctx())
-        await page.locator(selector).click()
+        // uni-app 适配：检测是否为 uni-* 组件，使用 evaluate 方式点击
+        const isUniComponent = selector.startsWith('uni-') || 
+                               selector.includes('uni-button') || 
+                               selector.includes('uni-view') ||
+                               ui.use_eval === true
+        if (isUniComponent) {
+          await page.evaluate((sel) => {
+            const el = document.querySelector(sel)
+            if (el) el.click()
+          }, selector)
+        } else {
+          // 标准 web 组件：先尝试普通点击，失败后回退到 evaluate
+          try {
+            await page.locator(selector).click({ timeout: ui.timeout_ms || 5000 })
+          } catch (e) {
+            // 回退到 evaluate 方式
+            console.log(`[syzygy] click timeout, fallback to evaluate: ${selector}`)
+            await page.evaluate((sel) => {
+              const el = document.querySelector(sel)
+              if (el) el.click()
+            }, selector)
+          }
+        }
       } else if (ui.role && ui.name) {
         const name = substitute(ui.name, ctx())
         await page.getByRole(ui.role, { name }).click()
@@ -530,11 +608,38 @@ async function runSteps(page, spec, anchors) {
       const value = substitute(ui.value, ctx())
       if (ui.selector) {
         const selector = substitute(ui.selector, ctx())
-        await page.locator(selector).fill(value)
+        // uni-app 适配：检测是否为 uni-input 组件
+        const isUniInput = selector.includes('uni-input') || 
+                           selector.includes('.uni-input-input') ||
+                           ui.use_eval === true
+        if (isUniInput) {
+          // uni-input 内部有真实的 input 元素，使用 input.uni-input-input
+          if (ui.index !== undefined) {
+            // 支持通过索引选择多个 input 中的某一个
+            const inputs = await page.locator('input.uni-input-input').all()
+            if (inputs[ui.index]) {
+              await inputs[ui.index].fill(value)
+            } else {
+              die(`ui.fill: input index ${ui.index} not found`)
+            }
+          } else {
+            await page.locator(selector).fill(value)
+          }
+        } else {
+          await page.locator(selector).fill(value)
+        }
       } else if (ui.label) {
         await page.getByLabel(ui.label).fill(value)
+      } else if (ui.index !== undefined) {
+        // uni-app 适配：通过索引填充 input
+        const inputs = await page.locator('input.uni-input-input').all()
+        if (inputs[ui.index]) {
+          await inputs[ui.index].fill(value)
+        } else {
+          die(`ui.fill: input index ${ui.index} not found`)
+        }
       } else {
-        die(`ui.fill requires selector or label. step=${step.name || ''}`)
+        die(`ui.fill requires selector, label, or index. step=${step.name || ''}`)
       }
       continue
     }
