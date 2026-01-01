@@ -1,0 +1,108 @@
+{
+  "unit_id": "hazard.verify.reject.v1",
+  "title": "Hazard verify reject flow (real prerequisites; no SQL seeding)",
+  "prerequisites": [
+    "./hazard.rectify.v1.spec.json"
+  ],
+  "env": {
+    "base_url": "https://dev.cq.wnsafe.com/admin",
+    "dms": "safe",
+    "MYSQL_HOST": "127.0.0.1",
+    "MYSQL_PORT": "3310",
+    "MYSQL_USER": "root",
+    "MYSQL_PASSWORD": "rootpass",
+    "MYSQL_DATABASE": "mydb"
+  },
+  "variables": {
+    "verify_remark": "自动化验收驳回-verify.reject.v1"
+  },
+  "steps": [
+    {
+      "name": "goto hazard detail",
+      "ui": {
+        "op": "ui.goto",
+        "url": "${base_url}/hazards/${hazard_id}"
+      }
+    },
+    {
+      "name": "wait verify button",
+      "ui": {
+        "op": "ui.wait_selector",
+        "selector": "button:has-text(\"验收\")",
+        "timeout_ms": 60000
+      }
+    },
+    {
+      "name": "open verify dialog",
+      "ui": {
+        "op": "ui.click",
+        "role": "button",
+        "name": "验收"
+      }
+    },
+    {
+      "name": "wait verify dialog",
+      "ui": {
+        "op": "ui.wait_selector",
+        "selector": "span.el-dialog__title:has-text(\"验收\")",
+        "timeout_ms": 15000
+      }
+    },
+    {
+      "name": "choose passed=false",
+      "ui": {
+        "op": "ui.click",
+        "selector": ".el-dialog__body .el-radio:has-text(\"驳回\")"
+      }
+    },
+    {
+      "name": "fill verify remark",
+      "ui": {
+        "op": "ui.fill",
+        "selector": ".el-dialog__body textarea",
+        "value": "${verify_remark}"
+      }
+    },
+    {
+      "name": "confirm verify reject",
+      "ui": {
+        "op": "ui.click",
+        "selector": ".el-dialog__footer button.el-button--primary:has-text(\"确认\")"
+      },
+      "net": {
+        "must": [
+          {
+            "method": "POST",
+            "url_contains": "/api/hazards/${hazard_id}/verify",
+            "expect_json": {
+              "code": "0"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "wait verify request settle",
+      "ui": {
+        "op": "ui.wait_ms",
+        "ms": 1500
+      }
+    }
+  ],
+  "db_checks": [
+    {
+      "name": "hazard should be rejected to assigned",
+      "dms": "safe",
+      "retry_attempts": 20,
+      "retry_interval_ms": 500,
+      "sql": "SELECT id, hazard_status, verify_remark FROM hazard WHERE id = :hazard_id",
+      "params": {
+        "hazard_id": "${hazard_id}"
+      },
+      "assert": {
+        "hazard_status": "assigned",
+        "verify_remark": "${verify_remark}"
+      }
+    }
+  ]
+}

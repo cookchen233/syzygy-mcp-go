@@ -1,0 +1,195 @@
+{
+  "unit_id": "hazard.assign.v1",
+  "title": "Hazard assign flow",
+  "prerequisites": [
+    "./hazard.create.v1.spec.json"
+  ],
+  "env": {
+    "base_url": "https://dev.cq.wnsafe.com/admin",
+    "dms": "safe"
+  },
+  "variables": {
+    "login_mobile": "13800000000",
+    "login_password": "ll123456",
+    "assignee_id": "264350456128475136",
+    "assignee_name": "啊啊啊"
+  },
+  "steps": [
+    {
+      "name": "goto login",
+      "ui": {
+        "op": "ui.goto",
+        "url": "${base_url}/login"
+      },
+      "expect": {
+        "console": "no_error"
+      }
+    },
+    {
+      "name": "wait login page",
+      "ui": {
+        "op": "ui.wait_selector",
+        "selector": "input[placeholder=\"请输入手机号\"]",
+        "timeout_ms": 20000
+      }
+    },
+    {
+      "name": "fill mobile",
+      "ui": {
+        "op": "ui.fill",
+        "selector": "input[placeholder=\"请输入手机号\"]",
+        "value": "${login_mobile}"
+      }
+    },
+    {
+      "name": "fill password",
+      "ui": {
+        "op": "ui.fill",
+        "selector": "input[placeholder=\"请输入密码\"]",
+        "value": "${login_password}"
+      }
+    },
+    {
+      "name": "click login",
+      "ui": {
+        "op": "ui.click_text",
+        "text": "登录",
+        "exact": false
+      }
+    },
+    {
+      "name": "wait workspace",
+      "ui": {
+        "op": "ui.wait_text",
+        "text": "工作台",
+        "exact": false,
+        "timeout_ms": 20000
+      }
+    },
+    {
+      "name": "goto hazard detail",
+      "ui": {
+        "op": "ui.goto",
+        "url": "${base_url}/hazards/${hazard_id}"
+      }
+    },
+    {
+      "name": "wait hazard detail page",
+      "ui": {
+        "op": "ui.wait_text",
+        "text": "隐患详情",
+        "exact": true,
+        "timeout_ms": 20000
+      }
+    },
+    {
+      "name": "wait assign button",
+      "ui": {
+        "op": "ui.wait_selector",
+        "selector": "button:has-text(\"指派整改\")",
+        "timeout_ms": 20000
+      }
+    },
+    {
+      "name": "open assign dialog",
+      "ui": {
+        "op": "ui.click",
+        "role": "button",
+        "name": "指派整改"
+      }
+    },
+    {
+      "name": "wait assign dialog",
+      "ui": {
+        "op": "ui.wait_selector",
+        "selector": "span.el-dialog__title:has-text(\"指派整改\")",
+        "timeout_ms": 15000
+      }
+    },
+    {
+      "name": "open assignee select",
+      "ui": {
+        "op": "ui.click",
+        "selector": ".el-dialog__body .el-select input"
+      }
+    },
+    {
+      "name": "filter assignee by name",
+      "ui": {
+        "op": "ui.fill",
+        "selector": ".el-dialog__body .el-select input",
+        "value": "${assignee_name}"
+      }
+    },
+    {
+      "name": "wait assignee dropdown",
+      "ui": {
+        "op": "ui.wait_selector",
+        "selector": ".el-select-dropdown__item:has-text(\"${assignee_name}\")",
+        "timeout_ms": 15000
+      }
+    },
+    {
+      "name": "choose assignee by name",
+      "ui": {
+        "op": "ui.click",
+        "selector": ".el-select-dropdown__item:has-text(\"${assignee_name}\")"
+      }
+    },
+    {
+      "name": "blur dropdown",
+      "ui": {
+        "op": "ui.click",
+        "selector": ".el-dialog__header"
+      }
+    },
+    {
+      "name": "wait after blur",
+      "ui": {
+        "op": "ui.wait_ms",
+        "ms": 300
+      }
+    },
+    {
+      "name": "confirm assign",
+      "ui": {
+        "op": "ui.click",
+        "selector": ".el-dialog__footer button.el-button--primary:has-text(\"确认指派\")"
+      },
+      "net": {
+        "must": [
+          {
+            "method": "POST",
+            "url_contains": "/api/hazards/${hazard_id}/assign",
+            "expect_json": {
+              "code": "0"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "wait assign request settle",
+      "ui": {
+        "op": "ui.wait_ms",
+        "ms": 1500
+      }
+    }
+  ],
+  "db_checks": [
+    {
+      "name": "hazard should be assigned",
+      "dms": "safe",
+      "retry_attempts": 20,
+      "retry_interval_ms": 500,
+      "sql": "SELECT id, hazard_status, assignee_id FROM hazard WHERE id = :hazard_id",
+      "params": {
+        "hazard_id": "${hazard_id}"
+      },
+      "assert": {
+        "hazard_status": "assigned",
+        "assignee_id": "${assignee_id}"
+      }
+    }
+  ]
+}

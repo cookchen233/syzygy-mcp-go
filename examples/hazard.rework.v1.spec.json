@@ -1,0 +1,180 @@
+{
+  "unit_id": "hazard.rework.v1",
+  "title": "Hazard rework loop: verify reject -> rectify -> verify pass (real prerequisites; no SQL seeding)",
+  "prerequisites": [
+    "./hazard.verify.reject.v1.spec.json"
+  ],
+  "env": {
+    "base_url": "https://dev.cq.wnsafe.com/admin",
+    "dms": "safe",
+    "MYSQL_HOST": "127.0.0.1",
+    "MYSQL_PORT": "3310",
+    "MYSQL_USER": "root",
+    "MYSQL_PASSWORD": "rootpass",
+    "MYSQL_DATABASE": "mydb"
+  },
+  "variables": {
+    "rectify_desc_rework": "自动化二次整改措施-rework.v1",
+    "verify_remark_rework": "自动化二次验收通过-rework.v1"
+  },
+  "steps": [
+    {
+      "name": "goto hazard detail",
+      "ui": {
+        "op": "ui.goto",
+        "url": "${base_url}/hazards/${hazard_id}"
+      }
+    },
+    {
+      "name": "wait rectify button",
+      "ui": {
+        "op": "ui.wait_selector",
+        "selector": "button:has-text(\"提交整改\")",
+        "timeout_ms": 60000
+      }
+    },
+    {
+      "name": "open rectify dialog",
+      "ui": {
+        "op": "ui.click",
+        "role": "button",
+        "name": "提交整改"
+      }
+    },
+    {
+      "name": "wait rectify dialog",
+      "ui": {
+        "op": "ui.wait_selector",
+        "selector": "span.el-dialog__title:has-text(\"提交整改\")",
+        "timeout_ms": 15000
+      }
+    },
+    {
+      "name": "fill rectify desc (rework)",
+      "ui": {
+        "op": "ui.fill",
+        "selector": ".el-dialog__body textarea[placeholder=\"请描述整改措施\"]",
+        "value": "${rectify_desc_rework}"
+      }
+    },
+    {
+      "name": "submit rectify (rework)",
+      "ui": {
+        "op": "ui.click",
+        "selector": ".el-dialog__footer button.el-button--primary:has-text(\"提交整改\")"
+      },
+      "net": {
+        "must": [
+          {
+            "method": "POST",
+            "url_contains": "/api/hazards/${hazard_id}/rectify",
+            "expect_json": {
+              "code": "0"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "wait rectify settle",
+      "ui": {
+        "op": "ui.wait_ms",
+        "ms": 1500
+      }
+    },
+    {
+      "name": "wait verify button",
+      "ui": {
+        "op": "ui.wait_selector",
+        "selector": "button:has-text(\"验收\")",
+        "timeout_ms": 60000
+      }
+    },
+    {
+      "name": "open verify dialog",
+      "ui": {
+        "op": "ui.click",
+        "role": "button",
+        "name": "验收"
+      }
+    },
+    {
+      "name": "wait verify dialog",
+      "ui": {
+        "op": "ui.wait_selector",
+        "selector": "span.el-dialog__title:has-text(\"验收\")",
+        "timeout_ms": 15000
+      }
+    },
+    {
+      "name": "choose passed=true",
+      "ui": {
+        "op": "ui.click",
+        "selector": ".el-dialog__body .el-radio:has-text(\"通过\")"
+      }
+    },
+    {
+      "name": "fill verify remark (rework)",
+      "ui": {
+        "op": "ui.fill",
+        "selector": ".el-dialog__body textarea[placeholder^=\"验收备注\"]",
+        "value": "${verify_remark_rework}"
+      }
+    },
+    {
+      "name": "confirm verify pass (rework)",
+      "ui": {
+        "op": "ui.click",
+        "selector": ".el-dialog__footer button.el-button--primary:has-text(\"确认\")"
+      },
+      "net": {
+        "must": [
+          {
+            "method": "POST",
+            "url_contains": "/api/hazards/${hazard_id}/verify",
+            "expect_json": {
+              "code": "0"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "wait verify settle",
+      "ui": {
+        "op": "ui.wait_ms",
+        "ms": 1500
+      }
+    }
+  ],
+  "db_checks": [
+    {
+      "name": "hazard should contain rework rectification (final state may be closed)",
+      "dms": "safe",
+      "retry_attempts": 20,
+      "retry_interval_ms": 500,
+      "sql": "SELECT id, hazard_status, rectification_desc FROM hazard WHERE id = :hazard_id",
+      "params": {
+        "hazard_id": "${hazard_id}"
+      },
+      "assert": {
+        "hazard_status": "closed",
+        "rectification_desc": "${rectify_desc_rework}"
+      }
+    },
+    {
+      "name": "hazard should be closed after re-verify",
+      "dms": "safe",
+      "retry_attempts": 20,
+      "retry_interval_ms": 500,
+      "sql": "SELECT id, hazard_status, verify_remark FROM hazard WHERE id = :hazard_id",
+      "params": {
+        "hazard_id": "${hazard_id}"
+      },
+      "assert": {
+        "hazard_status": "closed",
+        "verify_remark": "${verify_remark_rework}"
+      }
+    }
+  ]
+}

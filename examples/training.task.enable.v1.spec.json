@@ -1,0 +1,114 @@
+{
+  "unit_id": "training.task.enable.v1",
+  "title": "Training task enable flow (UI + Net + DB)",
+  "prerequisites": [
+    "./training.task.disable.v1.spec.json"
+  ],
+  "anchors": {},
+  "db_checks": [
+    {
+      "check_id": "db_85309614f812af91",
+      "name": "training task should be enabled",
+      "dms": "safe",
+      "sql": "SELECT id, training_task_status FROM training_task WHERE id = :task_id",
+      "params": {
+        "task_id": "${task_id}"
+      },
+      "assert": {
+        "training_task_status": "1"
+      }
+    }
+  ],
+  "env": {
+    "base_url": "https://dev.cq.wnsafe.com/admin",
+    "dms": "safe"
+  },
+  "run_id": "run_115e1a500a204768",
+  "steps": [
+    {
+      "step_id": "step_7135007ad54f2517",
+      "name": "goto training tasks",
+      "ui": {
+        "op": "ui.goto",
+        "url": "${base_url}/training/tasks"
+      }
+    },
+    {
+      "step_id": "step_4682e7c17c47e313",
+      "name": "wait task list page",
+      "ui": {
+        "exact": true,
+        "op": "ui.wait_text",
+        "text": "培训任务",
+        "timeout_ms": 20000
+      }
+    },
+    {
+      "step_id": "step_73d0f1eeaf8fe8d9",
+      "name": "wait task row",
+      "ui": {
+        "op": "ui.wait_selector",
+        "selector": "table tbody tr",
+        "timeout_ms": 20000
+      }
+    },
+    {
+      "step_id": "step_259fc3f93b9bdcbf",
+      "name": "find first enable button",
+      "ui": {
+        "op": "ui.wait_selector",
+        "selector": "table tbody tr:first-child button:has-text(\"启用\")",
+        "timeout_ms": 15000
+      }
+    },
+    {
+      "step_id": "step_77d031ebde62a83a",
+      "name": "click first enable button",
+      "ui": {
+        "op": "ui.click",
+        "selector": "table tbody tr:first-child button:has-text(\"启用\")"
+      }
+    },
+    {
+      "step_id": "step_af5013610f159c87",
+      "name": "wait confirm dialog",
+      "ui": {
+        "op": "ui.wait_selector",
+        "selector": ".el-message-box",
+        "timeout_ms": 10000
+      }
+    },
+    {
+      "step_id": "step_84610714f9137164",
+      "name": "confirm enable",
+      "ui": {
+        "op": "ui.click",
+        "selector": ".el-message-box__btns button.el-button--primary"
+      },
+      "net": {
+        "must": [
+          {
+            "expect_json": {
+              "code": "0"
+            },
+            "method": "POST",
+            "url_contains": "/api/training/tasks/",
+            "url_contains_also": "/enable"
+          }
+        ]
+      }
+    },
+    {
+      "step_id": "step_61f34d3ac0a3de83",
+      "name": "wait enable request settle",
+      "ui": {
+        "ms": 1500,
+        "op": "ui.wait_ms"
+      }
+    }
+  ],
+  "variables": {
+    "login_mobile": "13800000000",
+    "login_password": "ll123456"
+  }
+}

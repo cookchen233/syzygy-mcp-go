@@ -1,0 +1,171 @@
+{
+  "unit_id": "training.task.disable.v1",
+  "title": "Training task disable flow (UI + Net + DB)",
+  "prerequisites": [
+    "./training.task.create.v1.spec.json"
+  ],
+  "anchors": {},
+  "db_checks": [
+    {
+      "check_id": "db_6d6b5ed2b87a0781",
+      "name": "training task should be disabled",
+      "dms": "safe",
+      "sql": "SELECT id, training_task_status FROM training_task WHERE id = :task_id",
+      "params": {
+        "task_id": "${task_id}"
+      },
+      "assert": {
+        "training_task_status": "0"
+      }
+    }
+  ],
+  "env": {
+    "base_url": "https://dev.cq.wnsafe.com/admin",
+    "dms": "safe"
+  },
+  "run_id": "run_a7ce88436def7cc7",
+  "steps": [
+    {
+      "step_id": "step_622294426043ec92",
+      "name": "goto login",
+      "ui": {
+        "op": "ui.goto",
+        "url": "${base_url}/login"
+      },
+      "expect": {
+        "console": "no_error"
+      }
+    },
+    {
+      "step_id": "step_b92d9d70055bde90",
+      "name": "wait login page",
+      "ui": {
+        "op": "ui.wait_selector",
+        "selector": "input[placeholder=\"请输入手机号\"]",
+        "timeout_ms": 20000
+      }
+    },
+    {
+      "step_id": "step_1d8d02b6e708fa95",
+      "name": "fill mobile",
+      "ui": {
+        "op": "ui.fill",
+        "selector": "input[placeholder=\"请输入手机号\"]",
+        "value": "${login_mobile}"
+      }
+    },
+    {
+      "step_id": "step_0cf8746e41db7793",
+      "name": "fill password",
+      "ui": {
+        "op": "ui.fill",
+        "selector": "input[placeholder=\"请输入密码\"]",
+        "value": "${login_password}"
+      }
+    },
+    {
+      "step_id": "step_988233e09a714c9b",
+      "name": "click login",
+      "ui": {
+        "exact": false,
+        "op": "ui.click_text",
+        "text": "登录"
+      }
+    },
+    {
+      "step_id": "step_f101276d62451ce4",
+      "name": "wait workspace",
+      "ui": {
+        "exact": false,
+        "op": "ui.wait_text",
+        "text": "工作台",
+        "timeout_ms": 20000
+      }
+    },
+    {
+      "step_id": "step_fe55c3010740b1da",
+      "name": "goto training tasks",
+      "ui": {
+        "op": "ui.goto",
+        "url": "${base_url}/training/tasks"
+      }
+    },
+    {
+      "step_id": "step_0ffa3810826c8f43",
+      "name": "wait task list page",
+      "ui": {
+        "exact": true,
+        "op": "ui.wait_text",
+        "text": "培训任务",
+        "timeout_ms": 20000
+      }
+    },
+    {
+      "step_id": "step_edf94d1be5d74dff",
+      "name": "wait task row",
+      "ui": {
+        "op": "ui.wait_selector",
+        "selector": "table tbody tr",
+        "timeout_ms": 20000
+      }
+    },
+    {
+      "step_id": "step_02c69a828325d080",
+      "name": "find first disable button",
+      "ui": {
+        "op": "ui.wait_selector",
+        "selector": "table tbody tr:first-child button:has-text(\"停用\")",
+        "timeout_ms": 15000
+      }
+    },
+    {
+      "step_id": "step_864c28baa7d3c3dd",
+      "name": "click first disable button",
+      "ui": {
+        "op": "ui.click",
+        "selector": "table tbody tr:first-child button:has-text(\"停用\")"
+      }
+    },
+    {
+      "step_id": "step_59c59d76396867b5",
+      "name": "wait confirm dialog",
+      "ui": {
+        "op": "ui.wait_selector",
+        "selector": ".el-message-box",
+        "timeout_ms": 10000
+      }
+    },
+    {
+      "step_id": "step_773aec7bc1e2f3e8",
+      "name": "confirm disable",
+      "ui": {
+        "op": "ui.click",
+        "selector": ".el-message-box__btns button.el-button--primary"
+      },
+      "net": {
+        "must": [
+          {
+            "expect_json": {
+              "code": "0"
+            },
+            "method": "POST",
+            "url_contains": "/api/training/tasks/",
+            "url_contains_also": "/disable"
+          }
+        ]
+      }
+    },
+    {
+      "step_id": "step_4772a4e290b14a43",
+      "name": "wait disable request settle",
+      "ui": {
+        "ms": 1500,
+        "op": "ui.wait_ms"
+      }
+    }
+  ],
+  "variables": {
+    "login_mobile": "13800000000",
+    "login_password": "ll123456"
+  }
+}

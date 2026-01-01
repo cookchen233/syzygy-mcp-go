@@ -1,0 +1,86 @@
+{
+  "unit_id": "hazard.create.v2",
+  "title": "Hazard create (api fixture, real program path)",
+  "env": {
+    "base_url": "https://dev.cq.wnsafe.com/admin",
+    "dms": "safe",
+    "MYSQL_HOST": "127.0.0.1",
+    "MYSQL_PORT": "3310",
+    "MYSQL_USER": "root",
+    "MYSQL_PASSWORD": "rootpass",
+    "MYSQL_DATABASE": "mydb"
+  },
+  "variables": {
+    "login_mobile": "13800000000",
+    "login_password": "ll123456",
+    "tenant_id": "1000000000000000001",
+    "reporter_id": "264336543286562817",
+    "hazard_status": "pending",
+    "description": "syzygy api created hazard"
+  },
+  "steps": [
+    {
+      "name": "goto login",
+      "ui": { "op": "ui.goto", "url": "${base_url}/login" },
+      "expect": { "console": "no_error" }
+    },
+    {
+      "name": "wait login page",
+      "ui": { "op": "ui.wait_selector", "selector": "input[placeholder=\"请输入手机号\"]", "timeout_ms": 20000 }
+    },
+    {
+      "name": "fill mobile",
+      "ui": { "op": "ui.fill", "selector": "input[placeholder=\"请输入手机号\"]", "value": "${login_mobile}" }
+    },
+    {
+      "name": "fill password",
+      "ui": { "op": "ui.fill", "selector": "input[placeholder=\"请输入密码\"]", "value": "${login_password}" }
+    },
+    {
+      "name": "click login",
+      "ui": { "op": "ui.click_text", "text": "登录", "exact": false }
+    },
+    {
+      "name": "wait workspace",
+      "ui": { "op": "ui.wait_text", "text": "工作台", "exact": false, "timeout_ms": 20000 }
+    },
+    {
+      "name": "api create hazard",
+      "net": {
+        "op": "net.call",
+        "method": "POST",
+        "url": "/api/hazards",
+        "status": 200,
+        "json": {
+          "description": "${description}",
+          "level": "minor"
+        },
+        "expect_json": {
+          "code": "0"
+        },
+        "anchor": {
+          "key": "hazard_id",
+          "jsonpath": "$.data.id"
+        },
+        "require": {
+          "need_unit": "hazard.create.v2",
+          "message": "create hazard api failed (token/permission/env not ready)"
+        }
+      }
+    }
+  ],
+  "db_checks": [
+    {
+      "name": "hazard should exist",
+      "dms": "safe",
+      "retry_attempts": 20,
+      "retry_interval_ms": 500,
+      "sql": "SELECT id, tenant_id, hazard_status FROM hazard WHERE id = :hazard_id",
+      "params": { "hazard_id": "${hazard_id}" },
+      "assert": {
+        "tenant_id": "${tenant_id}",
+        "hazard_status": "pending"
+      }
+    }
+  ]
+}

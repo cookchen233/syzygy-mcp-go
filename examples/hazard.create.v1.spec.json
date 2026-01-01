@@ -1,0 +1,58 @@
+{
+  "unit_id": "hazard.create.v1",
+  "title": "Hazard create (db fixture)",
+  "env": {
+    "dms": "safe"
+  },
+  "variables": {
+    "tenant_id": "1000000000000000001",
+    "reporter_id": "264336543286562817",
+    "hazard_status": "pending",
+    "description": "syzygy auto created hazard"
+  },
+  "steps": [
+    {
+      "name": "gen hazard id",
+      "util": {
+        "op": "util.gen_id",
+        "key": "hazard_id"
+      }
+    },
+    {
+      "name": "gen hazard code",
+      "util": {
+        "op": "util.gen_id",
+        "key": "hazard_code"
+      }
+    },
+    {
+      "name": "insert hazard row",
+      "db": {
+        "op": "db.exec",
+        "sql": "INSERT INTO hazard (id, tenant_id, code, description, hazard_status, reporter_id, reported_at, created_at, updated_at) VALUES (:id, :tenant_id, :code, :description, :hazard_status, :reporter_id, NOW(), NOW(), NOW())",
+        "params": {
+          "id": "${hazard_id}",
+          "tenant_id": "${tenant_id}",
+          "code": "${hazard_code}",
+          "description": "${description}",
+          "hazard_status": "${hazard_status}",
+          "reporter_id": "${reporter_id}"
+        }
+      }
+    }
+  ],
+  "db_checks": [
+    {
+      "name": "hazard should exist",
+      "dms": "safe",
+      "sql": "SELECT id, tenant_id, hazard_status FROM hazard WHERE id = :hazard_id",
+      "params": {
+        "hazard_id": "${hazard_id}"
+      },
+      "assert": {
+        "hazard_status": "pending",
+        "tenant_id": "${tenant_id}"
+      }
+    }
+  ]
+}

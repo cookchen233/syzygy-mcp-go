@@ -1,0 +1,86 @@
+{
+  "anchors": {},
+  "db_checks": [
+    {
+      "check_id": "db_04a2f852e2cf9735",
+      "name": "training task should exist",
+      "dms": "safe",
+      "sql": "SELECT id, tenant_id, course_id, training_task_status FROM training_task WHERE id = :task_id",
+      "params": {
+        "task_id": "${task_id}"
+      },
+      "assert": {
+        "course_id": "${course_id}",
+        "training_task_status": "1",
+        "tenant_id": "${tenant_id}"
+      }
+    }
+  ],
+  "env": {
+    "dms": "safe"
+  },
+  "run_id": "run_e15b6bfe99065382",
+  "steps": [
+    {
+      "step_id": "step_c19c3f8fc35c56ad",
+      "name": "gen course id",
+      "util": {
+        "key": "course_id",
+        "op": "util.gen_id"
+      }
+    },
+    {
+      "step_id": "step_031691ed7435d5cd",
+      "name": "insert training course",
+      "db": {
+        "op": "db.exec",
+        "params": {
+          "content_type": "video",
+          "duration": "3600",
+          "id": "${course_id}",
+          "status": "1",
+          "tenant_id": "${tenant_id}",
+          "title": "Syzygy Test Course",
+          "created_by": "${creator_id}"
+        },
+        "sql": "INSERT INTO training_course (id, tenant_id, title, training_course_content_type, duration, training_course_status, created_by, created_at, updated_at) VALUES (:id, :tenant_id, :title, :content_type, :duration, :status, :created_by, NOW(), NOW())"
+      }
+    },
+    {
+      "step_id": "step_b0758c023f0edced",
+      "name": "gen task id",
+      "util": {
+        "key": "task_id",
+        "op": "util.gen_id"
+      }
+    },
+    {
+      "step_id": "step_83fd4c62abbd4e18",
+      "name": "insert training task",
+      "db": {
+        "op": "db.exec",
+        "params": {
+          "course_id": "${course_id}",
+          "created_by": "${creator_id}",
+          "end_date": "${end_date}",
+          "id": "${task_id}",
+          "is_required": "1",
+          "start_date": "${start_date}",
+          "status": "1",
+          "tenant_id": "${tenant_id}",
+          "title": "${task_title}"
+        },
+        "sql": "INSERT INTO training_task (id, tenant_id, course_id, title, start_date, end_date, training_task_status, is_required, created_by, created_at, updated_at) VALUES (:id, :tenant_id, :course_id, :title, :start_date, :end_date, :status, :is_required, :created_by, NOW(), NOW())"
+      }
+    }
+  ],
+  "unit_id": "training.task.create.v1",
+  "variables": {
+    "course_id": "264350456128475136",
+    "creator_id": "264336543286562817",
+    "end_date": "2026-12-31",
+    "start_date": "2026-01-01",
+    "task_title": "syzygy auto created training task",
+    "tenant_id": "1000000000000000001"
+  }
+}

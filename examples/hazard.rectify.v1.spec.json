@@ -1,0 +1,110 @@
+{
+  "unit_id": "hazard.rectify.v1",
+  "title": "Hazard rectify flow (real prerequisites; no SQL seeding)",
+  "prerequisites": [
+    "./hazard.assign.v2.spec.json"
+  ],
+  "env": {
+    "base_url": "https://dev.cq.wnsafe.com/admin",
+    "dms": "safe",
+    "MYSQL_HOST": "127.0.0.1",
+    "MYSQL_PORT": "3310",
+    "MYSQL_USER": "root",
+    "MYSQL_PASSWORD": "rootpass",
+    "MYSQL_DATABASE": "mydb"
+  },
+  "variables": {
+    "rectify_desc": "自动化整改措施-rectify.v1"
+  },
+  "steps": [
+    {
+      "name": "goto hazard detail",
+      "ui": {
+        "op": "ui.goto",
+        "url": "${base_url}/hazards/${hazard_id}"
+      }
+    },
+    {
+      "name": "wait hazard detail page",
+      "ui": {
+        "op": "ui.wait_text",
+        "text": "隐患详情",
+        "exact": true,
+        "timeout_ms": 20000
+      }
+    },
+    {
+      "name": "wait rectify button",
+      "ui": {
+        "op": "ui.wait_selector",
+        "selector": "button:has-text(\"提交整改\")",
+        "timeout_ms": 20000
+      }
+    },
+    {
+      "name": "open rectify dialog",
+      "ui": {
+        "op": "ui.click",
+        "role": "button",
+        "name": "提交整改"
+      }
+    },
+    {
+      "name": "wait rectify dialog",
+      "ui": {
+        "op": "ui.wait_selector",
+        "selector": "span.el-dialog__title:has-text(\"提交整改\")",
+        "timeout_ms": 15000
+      }
+    },
+    {
+      "name": "fill rectify desc",
+      "ui": {
+        "op": "ui.fill",
+        "selector": ".el-dialog__body textarea",
+        "value": "${rectify_desc}"
+      }
+    },
+    {
+      "name": "submit rectify",
+      "ui": {
+        "op": "ui.click",
+        "selector": ".el-dialog__footer button.el-button--primary:has-text(\"提交整改\")"
+      },
+      "net": {
+        "must": [
+          {
+            "method": "POST",
+            "url_contains": "/api/hazards/${hazard_id}/rectify",
+            "expect_json": {
+              "code": "0"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "wait rectify request settle",
+      "ui": {
+        "op": "ui.wait_ms",
+        "ms": 1500
+      }
+    }
+  ],
+  "db_checks": [
+    {
+      "name": "hazard should be rectified",
+      "dms": "safe",
+      "retry_attempts": 20,
+      "retry_interval_ms": 500,
+      "sql": "SELECT id, hazard_status, rectification_desc FROM hazard WHERE id = :hazard_id",
+      "params": {
+        "hazard_id": "${hazard_id}"
+      },
+      "assert": {
+        "hazard_status": "rectified",
+        "rectification_desc": "${rectify_desc}"
+      }
+    }
+  ]
+}
