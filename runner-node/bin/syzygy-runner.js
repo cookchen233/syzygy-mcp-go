@@ -798,12 +798,14 @@ async function main() {
 
   const browser = await chromium.launch({ headless: process.env.HEADLESS !== '0' })
   
-  // 检测是否为 H5 移动端页面，自动启用移动端模拟
-  const isH5 = rootSpec.metadata?.framework === 'uni-app' || 
-               rootSpec.env?.base_url?.includes('/h5') ||
-               process.env.MOBILE_EMULATION === '1'
+  // 检测是否为移动端页面，自动启用移动端模拟
+  // 优先级: metadata.mobile > 环境变量 > 自动检测
+  const isMobile = rootSpec.metadata?.mobile === true ||
+                   process.env.MOBILE_EMULATION === '1' ||
+                   rootSpec.metadata?.framework === 'uni-app' ||
+                   rootSpec.env?.base_url?.includes('/h5')
   
-  const contextOptions = isH5 ? {
+  const contextOptions = isMobile ? {
     // iPhone 12 Pro 模拟
     viewport: { width: 390, height: 844 },
     userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0 Mobile/15E148 Safari/604.1',
