@@ -21,11 +21,20 @@ async function ensureDir(p) {
   }
 }
 
+// 全局变量存储 spec 文件路径，用于确定 artifacts 目录
+let currentSpecPath = ''
+
 async function writeJsonArtifact(label, payload) {
   try {
-    const dir = process.env.SYZYGY_ARTIFACTS_DIR
-      ? path.resolve(process.env.SYZYGY_ARTIFACTS_DIR)
-      : path.resolve(process.cwd(), '../syzygy-artifacts')
+    // 优先使用环境变量，其次使用 spec 同级的 ../artifacts 目录
+    let dir = process.env.SYZYGY_ARTIFACTS_DIR
+    if (!dir && currentSpecPath) {
+      dir = path.resolve(path.dirname(currentSpecPath), '../artifacts')
+    }
+    if (!dir) {
+      dir = path.resolve(process.cwd(), 'syzygy/artifacts')
+    }
+    dir = path.resolve(dir)
     await ensureDir(dir)
     const ts = new Date().toISOString().replace(/[:.]/g, '-')
     const safeLabel = String(label || 'artifact').replace(/[^a-zA-Z0-9._-]/g, '_')
@@ -39,9 +48,15 @@ async function writeJsonArtifact(label, payload) {
 
 async function writeFailureArtifacts(page, label) {
   try {
-    const dir = process.env.SYZYGY_ARTIFACTS_DIR
-      ? path.resolve(process.env.SYZYGY_ARTIFACTS_DIR)
-      : path.resolve(process.cwd(), '../syzygy-artifacts')
+    // 优先使用环境变量，其次使用 spec 同级的 ../artifacts 目录
+    let dir = process.env.SYZYGY_ARTIFACTS_DIR
+    if (!dir && currentSpecPath) {
+      dir = path.resolve(path.dirname(currentSpecPath), '../artifacts')
+    }
+    if (!dir) {
+      dir = path.resolve(process.cwd(), 'syzygy/artifacts')
+    }
+    dir = path.resolve(dir)
     await ensureDir(dir)
 
     const ts = new Date().toISOString().replace(/[:.]/g, '-')
@@ -706,6 +721,9 @@ async function main() {
   if (!specPath) {
     die('Usage: syzygy-runner.js <spec.json> or set SYZYGY_SPEC')
   }
+  
+  // 设置全局 spec 路径，用于确定 artifacts 输出目录
+  currentSpecPath = path.resolve(specPath)
 
   async function loadSpec(p) {
     const abs = path.resolve(p)
