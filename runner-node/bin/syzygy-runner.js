@@ -612,8 +612,9 @@ async function runSteps(page, spec, anchors) {
         const isUniInput = selector.includes('uni-input') || 
                            selector.includes('.uni-input-input') ||
                            ui.use_eval === true
+        // 只有明确是 uni-textarea 才使用特殊处理，普通 textarea 正常处理
         const isUniTextarea = selector.includes('uni-textarea') ||
-                              selector.includes('textarea')
+                              selector.includes('.uni-textarea-textarea')
         if (isUniInput) {
           // uni-input 内部有真实的 input 元素，使用 input.uni-input-input
           if (ui.index !== undefined) {
