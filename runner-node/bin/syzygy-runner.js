@@ -608,14 +608,15 @@ async function runSteps(page, spec, anchors) {
       const value = substitute(ui.value, ctx())
       if (ui.selector) {
         const selector = substitute(ui.selector, ctx())
-        // uni-app 适配：检测是否为 uni-input 组件
+        // uni-app 适配：检测是否为 uni-input 或 uni-textarea 组件
         const isUniInput = selector.includes('uni-input') || 
                            selector.includes('.uni-input-input') ||
                            ui.use_eval === true
+        const isUniTextarea = selector.includes('uni-textarea') ||
+                              selector.includes('textarea')
         if (isUniInput) {
           // uni-input 内部有真实的 input 元素，使用 input.uni-input-input
           if (ui.index !== undefined) {
-            // 支持通过索引选择多个 input 中的某一个
             const inputs = await page.locator('input.uni-input-input').all()
             if (inputs[ui.index]) {
               await inputs[ui.index].fill(value)
@@ -625,6 +626,9 @@ async function runSteps(page, spec, anchors) {
           } else {
             await page.locator(selector).fill(value)
           }
+        } else if (isUniTextarea) {
+          // uni-textarea 内部有真实的 textarea 元素，使用 textarea.uni-textarea-textarea
+          await page.locator('textarea.uni-textarea-textarea').first().fill(value)
         } else {
           await page.locator(selector).fill(value)
         }
@@ -638,8 +642,11 @@ async function runSteps(page, spec, anchors) {
         } else {
           die(`ui.fill: input index ${ui.index} not found`)
         }
+      } else if (ui.textarea === true) {
+        // uni-app 适配：直接填充 textarea
+        await page.locator('textarea.uni-textarea-textarea').first().fill(value)
       } else {
-        die(`ui.fill requires selector, label, or index. step=${step.name || ''}`)
+        die(`ui.fill requires selector, label, index, or textarea. step=${step.name || ''}`)
       }
       continue
     }
