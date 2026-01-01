@@ -228,75 +228,43 @@ syzygy-mcp-go/
 
 ---
 
-## 🌍 <a id="english"></a>English Documentation
+## 📄 开源协议
 
-### What is Syzygy?
-
-**Syzygy** is an MCP-based E2E test crystallization framework designed for AI-assisted development. It solidifies **UI interactions, network requests, and database states** into replayable specs, achieving true "three-layer alignment" verification.
-
-### Quick Start
-
-```bash
-# 1. Clone repository
-git clone https://github.com/cookchen233/syzygy-mcp-go.git
-
-# 2. Build MCP service
-go build -o bin/syzygy-mcp ./cmd/syzygy-mcp
-
-# 3. Install Node.js runner
-cd runner-node && npm install && npx playwright install
-
-# 4. Configure MCP host (e.g., Claude Desktop)
-# Edit ~/Library/Application Support/Claude/claude_desktop_config.json
-```
-
-### Core Concepts
-
-- **Define**: Define UI behavior, API expectations, DB states
-- **Act**: Execute real browser operations
-- **Observe**: Capture network requests and database changes
-- **Align**: Verify three-layer evidence alignment
-- **Crystallize**: Solidify into replayable JSON specs
+MIT License - 详见 [LICENSE](LICENSE) 文件
 
 ---
 
-## 📄 License
+## 🤝 贡献指南
 
-MIT License - see [LICENSE](LICENSE) file for details.
+欢迎贡献！请随时提交 Pull Request。
 
----
-
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+1. Fork 本仓库
+2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
+3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
+4. 推送到分支 (`git push origin feature/AmazingFeature`)
+5. 提交 Pull Request
 
 ---
 
-## 📮 Contact
+## 📮 联系方式
 
 - GitHub: [@cookchen233](https://github.com/cookchen233)
 - Issues: [GitHub Issues](https://github.com/cookchen233/syzygy-mcp-go/issues)
 
 ---
 
-## 🙏 Acknowledgments
+## 🙏 致谢
 
-- [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) - The protocol that powers AI-tool integration
-- [Playwright](https://playwright.dev/) - Browser automation framework
-- [Go](https://go.dev/) - The Go programming language
+- [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) - 支持 AI 工具集成的协议
+- [Playwright](https://playwright.dev/) - 浏览器自动化框架
+- [Go](https://go.dev/) - Go 编程语言
 
 ---
 
 <div align="center">
 
-**Made with ❤️ for AI-assisted development**
+**用 ❤️ 为 AI 辅助开发而生**
 
-⭐ Star this repo if you find it helpful!
+⭐ 如果觉得有帮助，请给个 Star！
 
 </div>
