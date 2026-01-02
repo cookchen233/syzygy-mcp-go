@@ -1,8 +1,10 @@
 {
-  "name": "syzygy-runner-node",
-  "private": true,
+  "name": "syzygy-runner",
   "version": "0.1.0",
   "type": "module",
+  "bin": {
+    "syzygy-runner": "./bin/syzygy-runner.js"
+  },
   "scripts": {
     "run": "node ./bin/syzygy-runner.js"
   },

@@ -61,7 +61,7 @@ cd syzygy-mcp-go
 # 2. Build MCP service
 go build -o bin/syzygy-mcp ./cmd/syzygy-mcp
 
-# 3. Install Node.js Runner
+# 3. Install Replay Engine (Node.js)
 cd runner-node
 npm install
 npx playwright install
@@ -90,6 +90,11 @@ npx playwright install
 ---
 
 ## 📖 Usage Examples
+
+### 0. Initialize Project Runtime Config (Mandatory)
+
+Before using this MCP server, you must call `syzygy_project_init` once to persist project-level runtime config (e.g. BASE_URL / MYSQL_* / artifacts dir / replay engine command).
+Both `syzygy_unit_start` and `syzygy_replay` will strictly enforce that initialization is completed.
 
 ### 1. Create Unit with AI Assistant
 
@@ -135,13 +140,6 @@ AI assistant will automatically call Syzygy MCP tools:
 ```bash
 # Method 1: Use AI assistant
 # In conversation: Please replay user.login.v1
-
-# Method 2: Direct command line
-BASE_URL='https://your-app.com' \
-MYSQL_HOST='127.0.0.1' MYSQL_PORT='3306' \
-MYSQL_USER='root' MYSQL_PASSWORD='password' MYSQL_DATABASE='mydb' \
-HEADLESS='1' \
-node ./runner-node/bin/syzygy-runner.js /path/to/user.login.v1.spec.json
 ```
 
 ---
@@ -150,6 +148,7 @@ node ./runner-node/bin/syzygy-runner.js /path/to/user.login.v1.spec.json
 
 | Tool | Function                        | Parameters |
 |------|---------------------------------|------------|
+| `syzygy_project_init` | Initialize project runtime config | `project_key`, `env`, `runner_command`, `runner_dir` |
 | `syzygy.unit_start` | Create and start a unit         | `unit_id`, `title`, `env`, `variables` |
 | `syzygy.step_append` | Append single step              | `unit_id`, `run_id`, `step` |
 | `syzygy.steps_append_batch` | Batch append steps              | `unit_id`, `run_id`, `steps` |
@@ -213,9 +212,7 @@ syzygy-mcp-go/
 │   ├── application/         # Application layer (services, tool registry)
 │   ├── domain/              # Domain layer (units, steps, assertions)
 │   └── infrastructure/      # Infrastructure layer (file storage)
-├── runner-node/             # Node.js + Playwright executor
-│   ├── bin/
-│   │   └── syzygy-runner.js # Main executor
+├── runner-node/             # Replay Engine (Node.js + Playwright)
 │   └── package.json
 ├── examples/                # Example spec files
 └── README.md
@@ -293,7 +290,7 @@ your-project/
 ### For Crystallization
 
 - `SYZYGY_DATA_DIR`: Directory for runtime unit data (default: `./syzygy-data`)
-- `SYZYGY_RUNNER_DIR`: Path to runner-node directory
+- `SYZYGY_RUNNER_DIR`: Path to the Replay Engine (runner-node) directory
 - `SYZYGY_ARTIFACTS_DIR`: Directory for artifacts output (default: `./syzygy-artifacts`)
 
 ### For Replay

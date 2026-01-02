@@ -86,8 +86,10 @@ function substitute(template, ctx) {
   if (typeof template !== 'string') return template
   return template.replace(/\$\{([^}]+)\}/g, (_, key) => {
     const v = ctx[key]
-    if (v === undefined || v === null) return ''
-    return String(v)
+    if (v === undefined) {
+      console.log(`[syzygy] Warning: variable "${key}" not found in context`)
+    }
+    return v !== undefined ? String(v) : ''
   })
 }
 
@@ -135,11 +137,12 @@ function assertJsonPathExpect(body, expectJsonPath, ctx) {
 }
 
 function buildContext(spec, anchors) {
-  return {
+  const ctx = {
     ...(spec.variables || {}),
     ...(spec.env || {}),
-    ...(anchors || {})
+    ...anchors
   }
+  return ctx
 }
 
 function ensureAbsoluteUrl(url, ctx) {
@@ -223,6 +226,7 @@ async function assertDb(spec, anchors) {
         try {
           const curCtx = buildContext(spec, anchors)
           const { sql, values } = toPositionalSQL(check.sql, check.params, curCtx)
+          console.log(`[syzygy] assertDb: sql=${sql} values=${JSON.stringify(values)}`)
           const [rows] = await conn.execute(sql, values)
           if (!Array.isArray(rows) || rows.length === 0) {
             throw new Error('no rows returned')
@@ -290,11 +294,19 @@ async function assertDb(spec, anchors) {
 
 function setupNetworkCapture(page, spec, anchors, ctxGetter) {
   const mustRules = []
+  
+  // 1) 收集步骤内的网络规则
   for (const step of spec.steps || []) {
     const arr = step?.net?.must
     if (Array.isArray(arr)) {
       for (const rule of arr) mustRules.push(rule)
     }
+  }
+
+  // 2) 收集顶层网络规则 (兼容旧 Spec)
+  const topRules = spec.net_rules || spec.net?.must
+  if (Array.isArray(topRules)) {
+    for (const rule of topRules) mustRules.push(rule)
   }
 
   const hits = new Map()
@@ -311,10 +323,11 @@ function setupNetworkCapture(page, spec, anchors, ctxGetter) {
       // Try best-effort parse business code/message for debugging.
       let bizCode = null
       let bizMessage = null
+      let body = null
       try {
         const ct = res.headers()?.['content-type'] || ''
         if (ct.includes('application/json')) {
-          const body = await res.json().catch(() => null)
+          body = await res.json().catch(() => null)
           if (body && typeof body === 'object') {
             if (body.code !== undefined) bizCode = String(body.code)
             if (body.message !== undefined) bizMessage = String(body.message)
@@ -335,13 +348,12 @@ function setupNetworkCapture(page, spec, anchors, ctxGetter) {
         if (rule.status && Number(rule.status) !== status) continue
 
         if (rule.expect_json && typeof rule.expect_json === 'object') {
-          const body = await res.json().catch(() => null)
           if (!body || typeof body !== 'object') continue
           let ok = true
           for (const [k, expectedRaw] of Object.entries(rule.expect_json)) {
-            const expected = substitute(expectedRaw, ctx)
-            const actual = body?.[k]
-            if (expected !== String(actual)) {
+            const expected = String(substitute(expectedRaw, ctx))
+            const actual = String(body?.[k])
+            if (expected !== actual) {
               ok = false
               break
             }
@@ -350,11 +362,10 @@ function setupNetworkCapture(page, spec, anchors, ctxGetter) {
         }
 
         if (rule.expect_jsonpath && typeof rule.expect_jsonpath === 'object') {
-          const body = await res.json().catch(() => null)
           if (!body || typeof body !== 'object') continue
           let ok = true
           for (const [jp, expectedRaw] of Object.entries(rule.expect_jsonpath)) {
-            const expected = substitute(expectedRaw, ctx)
+            const expected = String(substitute(expectedRaw, ctx))
             const out = JSONPath({ path: String(jp), json: body })
             const v = Array.isArray(out) ? out[0] : out
             if (expected !== String(v)) {
@@ -368,13 +379,27 @@ function setupNetworkCapture(page, spec, anchors, ctxGetter) {
         const key = `${rule.method || '*'}|${urlContains || '*'}|${rule.status || '*'}|${url}`
         hits.set(key, { url, status, method, rule })
 
-        if (rule.anchor?.key && rule.anchor?.jsonpath) {
-          const body = await res.json().catch(() => null)
-          if (body) {
+        // 3) 捕获锚点 (支持单锚点和 capture_anchors 字典)
+        if (body) {
+          // 单锚点兼容
+          if (rule.anchor?.key && rule.anchor?.jsonpath) {
             const out = JSONPath({ path: rule.anchor.jsonpath, json: body })
             const v = Array.isArray(out) ? out[0] : out
             if (v !== undefined && v !== null) {
               anchors[rule.anchor.key] = String(v)
+              console.log(`[syzygy] net capture anchor (legacy): ${rule.anchor.key}=${v}`)
+            }
+          }
+          // 批量锚点捕获
+          const cap = rule.capture_anchors || rule.anchors
+          if (cap && typeof cap === 'object') {
+            for (const [aKey, jp] of Object.entries(cap)) {
+              const out = JSONPath({ path: String(jp), json: body })
+              const v = Array.isArray(out) ? out[0] : out
+              if (v !== undefined && v !== null) {
+                anchors[aKey] = String(v)
+                console.log(`[syzygy] net capture anchor: ${aKey}=${v}`)
+              }
             }
           }
         }
@@ -402,41 +427,53 @@ async function assertNoConsoleErrors(page) {
 }
 
 async function runSteps(page, spec, anchors) {
-  const ctx = () => buildContext(spec, anchors)
+  const steps = spec.steps || []
+  for (const step of steps) {
+    const curCtx = buildContext(spec, anchors)
+    const ui = step.ui || {}
+    const db = step.db || {}
+    const util = step.util || {}
+    const net = step.net || {}
+    const op = ui.op || db.op || util.op || net.op
 
-  for (const step of spec.steps || []) {
-    const ui = step.ui
-    const db = step.db
-    const util = step.util
-    const net = step.net
-    const op = (ui || db || util || net || {}).op
-
+    console.log(`[syzygy] step: ${step.name || 'unnamed'} (op=${op || 'none'})`)
     if (!op) continue
 
     if (op === 'util.gen_id') {
-      const key = util?.key
+      const key = util.key
       if (!key) {
         die(`util.gen_id requires key. step=${step.name || ''}`)
       }
-      anchors[key] = genBigintIdString()
+      const val = genBigintIdString()
+      anchors[key] = val
+      console.log(`[syzygy] util.gen_id: ${key}=${val}`)
+      continue
+    }
+
+    if (op === 'util.gen_ts') {
+      const key = util.key
+      if (!key) {
+        die(`util.gen_ts requires key. step=${step.name || ''}`)
+      }
+      const val = new Date().toISOString().replace(/[:.]/g, '-').replace('T', '-').slice(0, 19)
+      anchors[key] = val
+      console.log(`[syzygy] util.gen_ts: ${key}=${val}`)
       continue
     }
 
     if (op === 'net.call') {
-      const net = step.net
-      if (!net?.url) {
+      if (!net.url) {
         die(`net.call requires url. step=${step.name || ''}`)
       }
 
-      const curCtx = ctx()
       const method = String(net.method || 'GET').toUpperCase()
       const url = ensureAbsoluteUrl(substitute(net.url, curCtx), curCtx)
       const headers = deepSubstitute(net.headers || {}, curCtx)
 
       // Auto inject Bearer token stored by admin web (localStorage.token)
       try {
-        const key = Object.keys(headers || {}).find((k) => String(k).toLowerCase() === 'authorization')
-        if (!key) {
+        const authKey = Object.keys(headers).find((k) => String(k).toLowerCase() === 'authorization')
+        if (!authKey) {
           const token = await page.evaluate(() => {
             try {
               return localStorage.getItem('token') || ''
@@ -455,6 +492,7 @@ async function runSteps(page, spec, anchors) {
       const formBody = net.form !== undefined ? deepSubstitute(net.form, curCtx) : undefined
 
       try {
+        console.log(`[syzygy] net.call: ${method} ${url}`)
         const res = await page.request.fetch(url, {
           method,
           headers,
@@ -490,6 +528,7 @@ async function runSteps(page, spec, anchors) {
           }
           anchors[String(net.anchor.key)] = String(v)
           anchored = { key: String(net.anchor.key), value: String(v), jsonpath: String(net.anchor.jsonpath) }
+          console.log(`[syzygy] net.call anchor: ${net.anchor.key}=${v}`)
         }
 
         await writeJsonArtifact('net-call', {
@@ -518,12 +557,13 @@ async function runSteps(page, spec, anchors) {
     }
 
     if (op === 'db.exec') {
-      if (!db?.sql) {
+      if (!db.sql) {
         die(`db.exec requires sql. step=${step.name || ''}`)
       }
-      const conn = await mysql.createConnection(getMysqlConfigFromEnv())
+      const { sql, values } = toPositionalSQL(db.sql, db.params, curCtx)
+      console.log(`[syzygy] db.exec: sql=${sql} values=${JSON.stringify(values)}`)
+      const conn = await mysql.createConnection(getMysqlConfigFromEnv(curCtx))
       try {
-        const { sql, values } = toPositionalSQL(db.sql, db.params, ctx())
         await conn.execute(sql, values)
       } finally {
         await conn.end()
@@ -532,46 +572,41 @@ async function runSteps(page, spec, anchors) {
     }
 
     if (op === 'ui.goto') {
-      const url = substitute(ui.url, ctx())
+      const url = substitute(ui.url, curCtx)
+      console.log(`[syzygy] ui.goto: ${url}`)
       await page.goto(url, { waitUntil: 'domcontentloaded' })
       continue
     }
 
-    // uni-app 适配：通过修改 hash 导航（避免 SPA 路由重定向问题）
     if (op === 'ui.hash_navigate') {
-      const hash = substitute(ui.hash, ctx())
+      const hash = substitute(ui.hash, curCtx)
+      console.log(`[syzygy] ui.hash_navigate: ${hash}`)
       await page.evaluate((h) => {
         window.location.hash = h
       }, hash)
-      // 等待页面更新
       const waitMs = ui.wait_ms || 2000
       await page.waitForTimeout(waitMs)
       continue
     }
 
-    // 通用 JavaScript 执行（用于复杂的 uni-app 组件交互）
     if (op === 'ui.eval') {
-      const code = substitute(ui.code, ctx())
+      const code = substitute(ui.code, curCtx)
+      console.log(`[syzygy] ui.eval`)
       await page.evaluate((c) => {
-        // 执行用户提供的 JavaScript 代码
         return new Function(c)()
       }, code)
-      // 等待执行效果
       const waitMs = ui.wait_ms || 1000
       await page.waitForTimeout(waitMs)
       continue
     }
 
-    // uni-app picker 选择器适配
     if (op === 'ui.picker_select') {
       const index = ui.index !== undefined ? ui.index : 0
-      // 触发 picker 的 change 事件
+      console.log(`[syzygy] ui.picker_select: index=${index}`)
       await page.evaluate((idx) => {
-        // 查找所有 picker 组件并模拟选择
         const pickers = document.querySelectorAll('uni-picker')
         if (pickers.length > 0) {
           const picker = pickers[idx] || pickers[0]
-          // 触发 Vue 组件的内部事件
           const event = new CustomEvent('change', { 
             detail: { value: idx },
             bubbles: true 
@@ -586,8 +621,8 @@ async function runSteps(page, spec, anchors) {
 
     if (op === 'ui.click') {
       if (ui.selector) {
-        const selector = substitute(ui.selector, ctx())
-        // uni-app 适配：检测是否为 uni-* 组件，使用 evaluate 方式点击
+        const selector = substitute(ui.selector, curCtx)
+        console.log(`[syzygy] ui.click: ${selector}`)
         const isUniComponent = selector.startsWith('uni-') || 
                                selector.includes('uni-button') || 
                                selector.includes('uni-view') ||
@@ -598,11 +633,9 @@ async function runSteps(page, spec, anchors) {
             if (el) el.click()
           }, selector)
         } else {
-          // 标准 web 组件：先尝试普通点击，失败后回退到 evaluate
           try {
             await page.locator(selector).click({ timeout: ui.timeout_ms || 5000 })
           } catch (e) {
-            // 回退到 evaluate 方式
             console.log(`[syzygy] click timeout, fallback to evaluate: ${selector}`)
             await page.evaluate((sel) => {
               const el = document.querySelector(sel)
@@ -611,7 +644,8 @@ async function runSteps(page, spec, anchors) {
           }
         }
       } else if (ui.role && ui.name) {
-        const name = substitute(ui.name, ctx())
+        const name = substitute(ui.name, curCtx)
+        console.log(`[syzygy] ui.click: role=${ui.role} name=${name}`)
         await page.getByRole(ui.role, { name }).click()
       } else {
         die(`ui.click requires selector or role+name. step=${step.name || ''}`)
@@ -620,18 +654,16 @@ async function runSteps(page, spec, anchors) {
     }
 
     if (op === 'ui.fill') {
-      const value = substitute(ui.value, ctx())
+      const value = substitute(ui.value, curCtx)
       if (ui.selector) {
-        const selector = substitute(ui.selector, ctx())
-        // uni-app 适配：检测是否为 uni-input 或 uni-textarea 组件
+        const selector = substitute(ui.selector, curCtx)
+        console.log(`[syzygy] ui.fill: ${selector} value=${value}`)
         const isUniInput = selector.includes('uni-input') || 
                            selector.includes('.uni-input-input') ||
                            ui.use_eval === true
-        // 只有明确是 uni-textarea 才使用特殊处理，普通 textarea 正常处理
         const isUniTextarea = selector.includes('uni-textarea') ||
                               selector.includes('.uni-textarea-textarea')
         if (isUniInput) {
-          // uni-input 内部有真实的 input 元素，使用 input.uni-input-input
           if (ui.index !== undefined) {
             const inputs = await page.locator('input.uni-input-input').all()
             if (inputs[ui.index]) {
@@ -643,15 +675,15 @@ async function runSteps(page, spec, anchors) {
             await page.locator(selector).fill(value)
           }
         } else if (isUniTextarea) {
-          // uni-textarea 内部有真实的 textarea 元素，使用 textarea.uni-textarea-textarea
           await page.locator('textarea.uni-textarea-textarea').first().fill(value)
         } else {
           await page.locator(selector).fill(value)
         }
       } else if (ui.label) {
+        console.log(`[syzygy] ui.fill: label=${ui.label} value=${value}`)
         await page.getByLabel(ui.label).fill(value)
       } else if (ui.index !== undefined) {
-        // uni-app 适配：通过索引填充 input
+        console.log(`[syzygy] ui.fill: index=${ui.index} value=${value}`)
         const inputs = await page.locator('input.uni-input-input').all()
         if (inputs[ui.index]) {
           await inputs[ui.index].fill(value)
@@ -659,7 +691,7 @@ async function runSteps(page, spec, anchors) {
           die(`ui.fill: input index ${ui.index} not found`)
         }
       } else if (ui.textarea === true) {
-        // uni-app 适配：直接填充 textarea
+        console.log(`[syzygy] ui.fill: textarea=true value=${value}`)
         await page.locator('textarea.uni-textarea-textarea').first().fill(value)
       } else {
         die(`ui.fill requires selector, label, index, or textarea. step=${step.name || ''}`)
@@ -668,7 +700,8 @@ async function runSteps(page, spec, anchors) {
     }
 
     if (op === 'ui.click_text') {
-      const text = substitute(ui.text, ctx())
+      const text = substitute(ui.text, curCtx)
+      console.log(`[syzygy] ui.click_text: ${text}`)
       if (!text) {
         die(`ui.click_text requires text. step=${step.name || ''}`)
       }
@@ -677,7 +710,8 @@ async function runSteps(page, spec, anchors) {
     }
 
     if (op === 'ui.wait_text') {
-      const text = substitute(ui.text, ctx())
+      const text = substitute(ui.text, curCtx)
+      console.log(`[syzygy] ui.wait_text: ${text}`)
       if (!text) {
         die(`ui.wait_text requires text. step=${step.name || ''}`)
       }
@@ -686,7 +720,8 @@ async function runSteps(page, spec, anchors) {
     }
 
     if (op === 'ui.wait_selector') {
-      const selector = substitute(ui.selector, ctx())
+      const selector = substitute(ui.selector, curCtx)
+      console.log(`[syzygy] ui.wait_selector: ${selector}`)
       if (!selector) {
         die(`ui.wait_selector requires selector. step=${step.name || ''}`)
       }
@@ -701,13 +736,36 @@ async function runSteps(page, spec, anchors) {
       continue
     }
 
+    if (op === 'ui.fill_form') {
+      const { selector, value } = ui
+      if (!selector || value === undefined) {
+        die(`ui.fill_form requires selector and value. step=${step.name || ''}`)
+      }
+      const targetValue = substitute(String(value), curCtx)
+      console.log(`[syzygy] ui.fill_form: ${selector} value=${targetValue}`)
+      const timeout = ui.timeout_ms ? Number(ui.timeout_ms) : 15000
+      await page.locator(selector).first().waitFor({ state: 'visible', timeout })
+      await page.fill(selector, targetValue)
+      continue
+    }
+
     if (op === 'ui.wait_ms') {
       const ms = ui.ms ? Number(ui.ms) : 500
+      console.log(`[syzygy] ui.wait_ms: ${ms}`)
       await page.waitForTimeout(ms)
       continue
     }
 
-    // Biz ops are intentionally not implemented in v0.1
+    if (op === 'ui.verify_url_contains') {
+      const urlContains = substitute(ui.url_contains, curCtx)
+      console.log(`[syzygy] ui.verify_url_contains: ${urlContains}`)
+      const currentUrl = page.url()
+      if (!currentUrl.includes(urlContains)) {
+        die(`URL verification failed: expected to contain "${urlContains}", but current URL is "${currentUrl}"`)
+      }
+      continue
+    }
+
     if (op.startsWith('biz.')) {
       die(`Biz op not implemented: ${op}. Please expand it to ui.* steps or implement a custom runner extension.`)
     }
@@ -717,9 +775,16 @@ async function runSteps(page, spec, anchors) {
 }
 
 async function main() {
-  const specPath = process.argv[2] || process.env.SYZYGY_SPEC
+  const arg1 = process.argv[2]
+  if (arg1 === '--help' || arg1 === '-h') {
+    console.log('Usage: syzygy-runner <spec.json>\n\nEnv:\n  SYZYGY_SPEC=<spec.json>\n  HEADLESS=0 to run headed')
+    process.exit(0)
+  }
+
+  const specPath = arg1 || process.env.SYZYGY_SPEC
   if (!specPath) {
-    die('Usage: syzygy-runner.js <spec.json> or set SYZYGY_SPEC')
+    console.log('Usage: syzygy-runner <spec.json>\n\nEnv:\n  SYZYGY_SPEC=<spec.json>\n  HEADLESS=0 to run headed')
+    process.exit(0)
   }
   
   // 设置全局 spec 路径，用于确定 artifacts 输出目录

@@ -23,6 +23,10 @@ func NewSyzygyService(store Store, logger *log.Logger) *SyzygyService {
 }
 
 func (s *SyzygyService) UnitStart(unitID, title string, env map[string]any, variables map[string]any) (map[string]any, error) {
+	if _, err := s.EnsureProjectInitialized(); err != nil {
+		return nil, err
+	}
+
 	u, err := s.store.GetOrCreateUnit(unitID, title, env)
 	if err != nil {
 		return nil, err
@@ -52,6 +56,30 @@ func (s *SyzygyService) UnitStart(unitID, title string, env map[string]any, vari
 	}
 
 	return map[string]any{"unit_id": unitID, "run_id": runID}, nil
+}
+
+func (s *SyzygyService) ProjectInit(projectKey string, env map[string]any, runnerCommand string, runnerDir string) (map[string]any, error) {
+	cfg := &ProjectConfig{
+		ProjectKey:    projectKey,
+		Env:           map[string]string{},
+		RunnerCommand: normalizeRunnerCommand(runnerCommand),
+		RunnerDir:     strings.TrimSpace(runnerDir),
+	}
+	for k, v := range env {
+		cfg.Env[k] = anyToString(v)
+	}
+	if cfg.RunnerCommand == "" {
+		cfg.RunnerCommand = "syzygy-runner"
+	}
+	path, err := s.SaveProjectConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{
+		"ok":          true,
+		"config_path": path,
+		"config":      cfg,
+	}, nil
 }
 
 func (s *SyzygyService) StepAppend(unitID, runID string, step domain.ActionStep) (map[string]any, error) {

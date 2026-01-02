@@ -73,6 +73,11 @@ func (s *SyzygyService) Crystallize(unitID, runID, template, outputDir string) (
 }
 
 func (s *SyzygyService) Replay(unitID, runID, command string, args []string, cwd string, env map[string]any) (map[string]any, error) {
+	cfg, err := s.EnsureProjectInitialized()
+	if err != nil {
+		return nil, err
+	}
+
 	u, err := s.store.GetUnit(unitID)
 	if err != nil {
 		return nil, err
@@ -90,11 +95,15 @@ func (s *SyzygyService) Replay(unitID, runID, command string, args []string, cwd
 		if specPath == "" {
 			return nil, NewAppError("missing_artifact", "spec artifact not found; run syzygy_crystallize first")
 		}
-		// Default: call node runner (parameterized)
-		command = "node"
-		args = []string{"./runner-node/bin/syzygy-runner.js", specPath}
+
+		// Default: call configured runner command
+		command = cfg.RunnerCommand
+		args = []string{specPath}
+		if command == "" {
+			command = "syzygy-runner"
+		}
 		if cwd == "" {
-			cwd = "./"
+			cwd = cfg.RunnerDir
 		}
 		if env == nil {
 			env = map[string]any{}
@@ -113,13 +122,23 @@ func (s *SyzygyService) Replay(unitID, runID, command string, args []string, cwd
 		cmd.Dir = cwd
 	}
 	cmd.Env = os.Environ()
+
+	// 1) project config env
+	for k, v := range cfg.Env {
+		cmd.Env = append(cmd.Env, k+"="+v)
+	}
+
+	// 2) unit env (string only)
 	for k, v := range u.Env {
 		if sv, ok := v.(string); ok {
 			cmd.Env = append(cmd.Env, k+"="+sv)
 		}
 	}
+
+	// 3) tool-call env (best effort stringify)
 	for k, v := range env {
-		if sv, ok := v.(string); ok {
+		sv := anyToString(v)
+		if sv != "" {
 			cmd.Env = append(cmd.Env, k+"="+sv)
 		}
 	}
@@ -133,7 +152,12 @@ func (s *SyzygyService) Replay(unitID, runID, command string, args []string, cwd
 
 	var result map[string]any
 	if err != nil {
-		result = map[string]any{"ok": false, "output": string(out), "error": err.Error(), "anchors": run.Anchors}
+		msg := err.Error()
+		// Add actionable hints for common runner dependency issues
+		if strings.Contains(string(out), "Cannot find package 'playwright'") || strings.Contains(string(out), "Cannot find module") {
+			msg = msg + "; runner dependencies missing. Please run: cd <runner-node> && npm install && npx playwright install"
+		}
+		result = map[string]any{"ok": false, "output": string(out), "error": msg, "anchors": run.Anchors}
 	} else {
 		result = map[string]any{"ok": true, "output": string(out), "anchors": run.Anchors}
 	}

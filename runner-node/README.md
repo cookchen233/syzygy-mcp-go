@@ -7,13 +7,16 @@ Node runner for Syzygy spec.
 ```bash
 npm install
 npx playwright install
+
+# (optional) install global command syzygy-runner
+npm link
 ```
 
 ## Run
 
 ```bash
 MYSQL_HOST=... MYSQL_USER=... MYSQL_PASSWORD=... MYSQL_DATABASE=... \
-node ./bin/syzygy-runner.js /path/to/spec.json
+syzygy-runner /path/to/spec.json
 ```
 
 Env:

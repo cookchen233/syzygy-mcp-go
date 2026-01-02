@@ -20,6 +20,20 @@ func NewToolRegistry(svc *SyzygyService) *ToolRegistry {
 func (r *ToolRegistry) ListTools() []ToolDefinition {
 	return []ToolDefinition{
 		{
+			Name:        "syzygy_project_init",
+			Description: "Initialize project runtime config (初始化项目运行配置：DB/BASE_URL/artifacts/runner)",
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"project_key":    map[string]any{"type": "string"},
+					"env":            map[string]any{"type": "object"},
+					"runner_command": map[string]any{"type": "string"},
+					"runner_dir":     map[string]any{"type": "string"},
+				},
+				"required": []string{},
+			},
+		},
+		{
 			Name:        "syzygy_unit_start",
 			Description: "Start a Syzygy unit run (创建并开始一个单元 run)",
 			InputSchema: map[string]any{
@@ -251,6 +265,15 @@ func parseActionStepFromMap(stepRaw map[string]any) domain.ActionStep {
 
 func (r *ToolRegistry) CallTool(name string, args map[string]any) (any, error) {
 	switch name {
+	case "syzygy_project_init":
+		projectKey, _ := args["project_key"].(string)
+		env, _ := args["env"].(map[string]any)
+		runnerCommand, _ := args["runner_command"].(string)
+		runnerDir, _ := args["runner_dir"].(string)
+		if env == nil {
+			env = map[string]any{}
+		}
+		return r.svc.ProjectInit(projectKey, env, runnerCommand, runnerDir)
 	case "syzygy_unit_start":
 		unitID, _ := args["unit_id"].(string)
 		title, _ := args["title"].(string)

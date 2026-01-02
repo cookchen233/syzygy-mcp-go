@@ -61,7 +61,7 @@ cd syzygy-mcp-go
 # 2. 编译 MCP 服务
 go build -o bin/syzygy-mcp ./cmd/syzygy-mcp
 
-# 3. 安装 Node.js Runner
+# 3. 安装回放引擎 (Replay Engine)
 cd runner-node
 npm install
 npx playwright install
@@ -89,6 +89,11 @@ npx playwright install
 ---
 
 ## 📖 使用示例
+
+### 0. 初始化项目运行配置（强制）
+
+在首次使用本 MCP 前，必须先调用 `syzygy_project_init` 写入项目级运行配置（如 BASE_URL / MYSQL_* / artifacts 目录 / 回放引擎命令）。
+后续 `syzygy_unit_start` 与 `syzygy_replay` 会强制检查该配置是否已初始化。
 
 ### 1. 使用 AI 助手创建单元
 
@@ -134,13 +139,6 @@ AI 助手会自动调用 Syzygy MCP 工具：
 ```bash
 # 方式 1：使用 AI 助手
 # 在对话中：请回放 user.login.v1
-
-# 方式 2：直接命令行
-BASE_URL='https://your-app.com' \
-MYSQL_HOST='127.0.0.1' MYSQL_PORT='3306' \
-MYSQL_USER='root' MYSQL_PASSWORD='password' MYSQL_DATABASE='mydb' \
-HEADLESS='1' \
-node ./runner-node/bin/syzygy-runner.js /path/to/user.login.v1.spec.json
 ```
 
 ---
@@ -149,6 +147,7 @@ node ./runner-node/bin/syzygy-runner.js /path/to/user.login.v1.spec.json
 
 | 工具 | 功能 | 参数 |
 |------|------|------|
+| `syzygy_project_init` | 初始化项目运行配置 | `project_key`, `env`, `runner_command`, `runner_dir` |
 | `syzygy.unit_start` | 创建并开始一个单元 | `unit_id`, `title`, `env`, `variables` |
 | `syzygy.step_append` | 追加单个步骤 | `unit_id`, `run_id`, `step` |
 | `syzygy.steps_append_batch` | 批量追加步骤 | `unit_id`, `run_id`, `steps` |
@@ -212,9 +211,7 @@ syzygy-mcp-go/
 │   ├── application/         # 应用层（服务、工具注册）
 │   ├── domain/              # 领域层（单元、步骤、断言）
 │   └── infrastructure/      # 基础设施层（文件存储）
-├── runner-node/             # Node.js + Playwright 执行器
-│   ├── bin/
-│   │   └── syzygy-runner.js # 主执行器
+├── runner-node/             # 回放引擎（Node.js + Playwright）
 │   └── package.json
 ├── examples/                # 示例 spec 文件
 └── README.md
