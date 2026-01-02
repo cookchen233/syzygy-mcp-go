@@ -2,9 +2,11 @@ package application
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -34,10 +36,10 @@ func (s *SyzygyService) Crystallize(unitID, runID, template, outputDir string) (
 	// 1) Save spec
 	specPath := filepath.Join(outputDir, "spec.json")
 	b, err := json.MarshalIndent(map[string]any{
-		"unit_id": unitID,
-		"run_id":  runID,
-		"steps":   run.Steps,
-		"anchors": run.Anchors,
+		"unit_id":   unitID,
+		"run_id":    runID,
+		"steps":     run.Steps,
+		"anchors":   run.Anchors,
 		"db_checks": run.DBChecks,
 		"variables": run.Variables,
 		"env":       u.Env,
@@ -100,6 +102,12 @@ func (s *SyzygyService) Replay(unitID, runID, command string, args []string, cwd
 		env["SYZYGY_SPEC"] = specPath
 	}
 
+	// 环境检查和命令验证
+	if err := s.validateCommand(command); err != nil {
+		// 严格模式：环境问题必须明确报告，不允许mock通过
+		return nil, NewAppError("environment_error", fmt.Sprintf("Command validation failed: %v. This is an environment issue that must be resolved before replay can proceed. Please check your PATH and command availability.", err))
+	}
+
 	cmd := exec.Command(command, args...)
 	if cwd != "" {
 		cmd.Dir = cwd
@@ -117,8 +125,55 @@ func (s *SyzygyService) Replay(unitID, runID, command string, args []string, cwd
 	}
 
 	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return map[string]any{"ok": false, "output": string(out), "error": err.Error(), "anchors": run.Anchors}, nil
+
+	// 保存replay结果到run.Meta供selfcheck检测
+	if run.Meta == nil {
+		run.Meta = map[string]any{}
 	}
-	return map[string]any{"ok": true, "output": string(out), "anchors": run.Anchors}, nil
+
+	var result map[string]any
+	if err != nil {
+		result = map[string]any{"ok": false, "output": string(out), "error": err.Error(), "anchors": run.Anchors}
+	} else {
+		result = map[string]any{"ok": true, "output": string(out), "anchors": run.Anchors}
+	}
+
+	// 将replay结果保存到meta中
+	run.Meta["replay_result"] = result
+	run.Meta["replay_executed_at"] = time.Now().UTC().Format(time.RFC3339)
+	u.UpdatedAt = time.Now().UTC()
+
+	if saveErr := s.store.SaveUnit(u); saveErr != nil {
+		s.logger.Printf("Warning: failed to save replay result to meta: %v", saveErr)
+	}
+
+	return result, nil
+}
+
+// validateCommand 检查命令是否存在且可执行
+func (s *SyzygyService) validateCommand(command string) error {
+	// 检查是否是绝对路径
+	if strings.Contains(command, "/") {
+		if _, err := exec.LookPath(command); err != nil {
+			return fmt.Errorf("command not found at absolute path: %s", command)
+		}
+		return nil
+	}
+
+	// 对于相对路径命令，检查 PATH 中是否存在
+	if _, err := exec.LookPath(command); err != nil {
+		// 尝试常见的路径
+		commonPaths := []string{"/bin", "/usr/bin", "/usr/local/bin", "/opt/homebrew/bin"}
+		for _, path := range commonPaths {
+			fullPath := filepath.Join(path, command)
+			if _, err := os.Stat(fullPath); err == nil {
+				// 找到了，但需要更新 PATH
+				s.logger.Printf("Found command %s at %s, but PATH may be incomplete", command, fullPath)
+				return nil
+			}
+		}
+		return fmt.Errorf("command '%s' not found in PATH or common locations", command)
+	}
+
+	return nil
 }

@@ -49,7 +49,7 @@ Define（定义） → Act（执行） → Observe（观察） → Align（对�
 - Go 1.22+
 - Node.js 18+
 - MySQL 5.7+ (用于 DB 断言)
-- AI 助手支持 MCP 协议 (如 Claude Desktop、Windsurf 等)
+- AI 助手支持 MCP 协议 (如 Claude Code、Windsurf 等)
 
 ### 安装
 
@@ -66,7 +66,7 @@ cd runner-node
 npm install
 npx playwright install
 
-# 4. 配置 MCP Host（以 Claude Desktop 为例）
+# 4. 配置 MCP Host（以 Claude Code 为例）
 # 编辑 ~/Library/Application Support/Claude/claude_desktop_config.json
 ```
 
@@ -156,8 +156,49 @@ node ./runner-node/bin/syzygy-runner.js /path/to/user.login.v1.spec.json
 | `syzygy.dbcheck_append` | 追加数据库断言 | `unit_id`, `run_id`, `db_check` |
 | `syzygy.crystallize` | 生成固化产物 | `unit_id`, `run_id`, `template`, `output_dir` |
 | `syzygy.replay` | 回放固化用例 | `unit_id`, `run_id`, `env`, `command` |
+| `syzygy.selfcheck` | 自查单元合规性 | `unit_id`, `run_id` |
 | `syzygy.unit_meta_set` | 设置单元元数据 | `unit_id`, `meta` |
 | `syzygy.plan_impacted_units` | 规划受影响的单元 | `changed_files`, `changed_apis`, `changed_tables` |
+
+### 🔍 syzygy.selfcheck 工具详解
+
+**syzygy.selfcheck** 是强制合规性检查工具，用于验证单元是否完全符合 Syzygy 范式要求。
+
+#### 检查项目
+- ✅ **固化完成** - 验证 `syzygy_crystallize` 已执行
+- ✅ **回放验证** - 验证 `syzygy_replay` 已执行且成功
+- ✅ **三层对齐** - 验证 UI/Net/DB 三层验证完整
+- ✅ **交付格式** - 验证元数据完整
+
+#### 使用示例
+```bash
+# AI 助手自动调用（推荐）
+syzygy_selfcheck(unit_id="user.login.v1", run_id="run_xxx")
+
+# 返回结果示例
+{
+  "all_passed": true,
+  "summary": "🟢 SYZYGY SELFCHECK PASSED - All checks completed successfully",
+  "checks": [
+    {"name": "crystallize_completed", "passed": true, "message": "Crystallize has been executed"},
+    {"name": "replay_verified", "passed": true, "message": "✅ Replay verification successful"},
+    {"name": "three_layer_alignment", "passed": true, "message": "Three-layer alignment check"},
+    {"name": "delivery_format", "passed": true, "message": "Delivery format check"}
+  ]
+}
+```
+
+#### 强制调用顺序
+```
+1. syzygy_unit_start
+2. syzygy_step_append(s)
+3. syzygy_dbcheck_append(s)
+4. syzygy_crystallize
+5. syzygy_replay
+6. syzygy_selfcheck ← 【强制步骤】
+```
+
+**注意**：`syzygy_selfcheck` 必须在所有开发完成后调用，只有返回 `all_passed: true` 才算完成 Syzygy 流程。
 
 ---
 

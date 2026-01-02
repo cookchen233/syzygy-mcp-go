@@ -178,6 +178,18 @@ func (r *ToolRegistry) ListTools() []ToolDefinition {
 				"required": []string{"unit_id", "run_id"},
 			},
 		},
+		{
+			Name:        "syzygy_selfcheck",
+			Description: "Self-check a unit run for SYZYGY compliance (自查单元运行是否符合SYZYGY规范)。完成开发后必须调用此工具验证：1.固化是否完成 2.回放是否执行且成功 3.三层对齐是否达成 4.交付格式是否正确",
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"unit_id": map[string]any{"type": "string"},
+					"run_id":  map[string]any{"type": "string"},
+				},
+				"required": []string{"unit_id", "run_id"},
+			},
+		},
 	}
 }
 
@@ -495,6 +507,19 @@ func (r *ToolRegistry) CallTool(name string, args map[string]any) (any, error) {
 			return nil, NewAppError("invalid_args", "unit_id and run_id are required")
 		}
 		return r.svc.Replay(unitID, runID, cmd, argv, cwd, env)
+	case "syzygy_selfcheck":
+		unitID, _ := args["unit_id"].(string)
+		runID, _ := args["run_id"].(string)
+		if runID == "" {
+			u, err := r.svc.GetUnit(unitID)
+			if err == nil {
+				runID = latestRunID(u)
+			}
+		}
+		if unitID == "" || runID == "" {
+			return nil, NewAppError("invalid_args", "unit_id and run_id are required")
+		}
+		return r.svc.SelfCheck(unitID, runID)
 	default:
 		return nil, NewAppError("tool_not_implemented", "tool not implemented: "+name)
 	}

@@ -49,7 +49,7 @@ Define → Act → Observe → Align → Crystallize
 - Go 1.22+
 - Node.js 18+
 - MySQL 5.7+ (for DB assertions)
-- AI assistant with MCP support (e.g., Claude Desktop, Windsurf)
+- AI assistant with MCP support (e.g., Claude Code, Windsurf)
 
 ### Installation
 
@@ -66,7 +66,7 @@ cd runner-node
 npm install
 npx playwright install
 
-# 4. Configure MCP Host (e.g., Claude Desktop)
+# 4. Configure MCP Host (e.g., Claude Code)
 # Edit ~/Library/Application Support/Claude/claude_desktop_config.json
 ```
 
@@ -148,17 +148,58 @@ node ./runner-node/bin/syzygy-runner.js /path/to/user.login.v1.spec.json
 
 ## 🛠️ MCP Tools
 
-| Tool | Function | Parameters |
-|------|----------|------------|
-| `syzygy.unit_start` | Create and start a unit | `unit_id`, `title`, `env`, `variables` |
-| `syzygy.step_append` | Append single step | `unit_id`, `run_id`, `step` |
-| `syzygy.steps_append_batch` | Batch append steps | `unit_id`, `run_id`, `steps` |
-| `syzygy.anchor_set` | Set data anchor | `unit_id`, `run_id`, `key`, `value` |
-| `syzygy.dbcheck_append` | Append database assertion | `unit_id`, `run_id`, `db_check` |
+| Tool | Function                        | Parameters |
+|------|---------------------------------|------------|
+| `syzygy.unit_start` | Create and start a unit         | `unit_id`, `title`, `env`, `variables` |
+| `syzygy.step_append` | Append single step              | `unit_id`, `run_id`, `step` |
+| `syzygy.steps_append_batch` | Batch append steps              | `unit_id`, `run_id`, `steps` |
+| `syzygy.anchor_set` | Set data anchor                 | `unit_id`, `run_id`, `key`, `value` |
+| `syzygy.dbcheck_append` | Append database assertion       | `unit_id`, `run_id`, `db_check` |
 | `syzygy.crystallize` | Generate crystallized artifacts | `unit_id`, `run_id`, `template`, `output_dir` |
-| `syzygy.replay` | Replay crystallized spec | `unit_id`, `run_id`, `env`, `command` |
-| `syzygy.unit_meta_set` | Set unit metadata | `unit_id`, `meta` |
-| `syzygy.plan_impacted_units` | Plan impacted units | `changed_files`, `changed_apis`, `changed_tables` |
+| `syzygy.replay` | Replay crystallized spec        | `unit_id`, `run_id`, `env`, `command` |
+| `syzygy.selfcheck` | Self-check unit compliance      | `unit_id`, `run_id` |
+| `syzygy.unit_meta_set` | Set unit metadata               | `unit_id`, `meta` |
+| `syzygy.plan_impacted_units` | Plan impacted units             | `changed_files`, `changed_apis`, `changed_tables` |
+
+### 🔍 syzygy.selfcheck Tool Details
+
+**syzygy.selfcheck** is a mandatory compliance checking tool that validates whether a unit fully complies with Syzygy paradigm requirements.
+
+#### Check Items
+- ✅ **Crystallization Complete** - Verifies `syzygy_crystallize` has been executed
+- ✅ **Replay Verified** - Verifies `syzygy_replay` has been executed and succeeded
+- ✅ **Three-Layer Alignment** - Verifies UI/Net/DB three-layer verification is complete
+- ✅ **Delivery Format** - Verifies metadata completeness
+
+#### Usage Example
+```bash
+# AI auto-call (recommended)
+syzygy_selfcheck(unit_id="user.login.v1", run_id="run_xxx")
+
+# Return result example
+{
+  "all_passed": true,
+  "summary": "🟢 SYZYGY SELFCHECK PASSED - All checks completed successfully",
+  "checks": [
+    {"name": "crystallize_completed", "passed": true, "message": "Crystallize has been executed"},
+    {"name": "replay_verified", "passed": true, "message": "✅ Replay verification successful"},
+    {"name": "three_layer_alignment", "passed": true, "message": "Three-layer alignment check"},
+    {"name": "delivery_format", "passed": true, "message": "Delivery format check"}
+  ]
+}
+```
+
+#### Mandatory Call Order
+```
+1. syzygy_unit_start
+2. syzygy_step_append(s)
+3. syzygy_dbcheck_append(s)
+4. syzygy_crystallize
+5. syzygy_replay
+6. syzygy_selfcheck ← 【Mandatory Step】
+```
+
+**Note**: `syzygy_selfcheck` must be called after all development is complete. Only when it returns `all_passed: true` is the Syzygy process considered complete.
 
 ---
 
