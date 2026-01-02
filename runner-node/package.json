@@ -3,7 +3,8 @@
   "version": "0.1.0",
   "type": "module",
   "bin": {
-    "syzygy-runner": "./bin/syzygy-runner.js"
+    "syzygy-runner": "./bin/syzygy-runner.js",
+    "syzygy-playwright": "./bin/syzygy-playwright.js"
   },
   "scripts": {
     "run": "node ./bin/syzygy-runner.js"

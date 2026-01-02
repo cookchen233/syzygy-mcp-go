@@ -204,6 +204,19 @@ func (r *ToolRegistry) ListTools() []ToolDefinition {
 				"required": []string{"unit_id", "run_id"},
 			},
 		},
+		{
+			Name:        "syzygy_playwright_run",
+			Description: "Execute robust browser automation scripts using Playwright. Use this INSTEAD of standard playwright for H5, SPA, or Uni-app pages to handle non-standard components and redirection issues. It includes automatic JS-click fallbacks and mobile emulation.",
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"code":     map[string]any{"type": "string", "description": "Playwright-style javascript code to execute"},
+					"mobile":   map[string]any{"type": "boolean", "description": "Enable mobile emulation (default: true for H5)"},
+					"headless": map[string]any{"type": "boolean", "description": "Run in headless mode (default: true)"},
+				},
+				"required": []string{"code"},
+			},
+		},
 	}
 }
 
@@ -543,6 +556,17 @@ func (r *ToolRegistry) CallTool(name string, args map[string]any) (any, error) {
 			return nil, NewAppError("invalid_args", "unit_id and run_id are required")
 		}
 		return r.svc.SelfCheck(unitID, runID)
+	case "syzygy_playwright_run":
+		code, _ := args["code"].(string)
+		mobile, _ := args["mobile"].(bool)
+		headless, ok := args["headless"].(bool)
+		if !ok {
+			headless = true // 默认无头
+		}
+		if code == "" {
+			return nil, NewAppError("invalid_args", "code is required")
+		}
+		return r.svc.PlaywrightRun(code, mobile, headless)
 	default:
 		return nil, NewAppError("tool_not_implemented", "tool not implemented: "+name)
 	}
