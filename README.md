@@ -148,16 +148,16 @@ AI 助手会自动调用 Syzygy MCP 工具：
 | 工具 | 功能 | 参数 |
 |------|------|------|
 | `syzygy_project_init` | 初始化项目运行配置 | `project_key`, `env`, `runner_command`, `runner_dir` |
-| `syzygy.unit_start` | 创建并开始一个单元 | `unit_id`, `title`, `env`, `variables` |
-| `syzygy.step_append` | 追加单个步骤 | `unit_id`, `run_id`, `step` |
-| `syzygy.steps_append_batch` | 批量追加步骤 | `unit_id`, `run_id`, `steps` |
-| `syzygy.anchor_set` | 设置数据锚点 | `unit_id`, `run_id`, `key`, `value` |
-| `syzygy.dbcheck_append` | 追加数据库断言 | `unit_id`, `run_id`, `db_check` |
-| `syzygy.crystallize` | 生成固化产物 | `unit_id`, `run_id`, `template`, `output_dir` |
-| `syzygy.replay` | 回放固化用例 | `unit_id`, `run_id`, `env`, `command` |
-| `syzygy.selfcheck` | 自查单元合规性 | `unit_id`, `run_id` |
-| `syzygy.unit_meta_set` | 设置单元元数据 | `unit_id`, `meta` |
-| `syzygy.plan_impacted_units` | 规划受影响的单元 | `changed_files`, `changed_apis`, `changed_tables` |
+| `syzygy_unit_start` | 创建并开始一个单元 | `unit_id`, `title`, `env`, `variables` |
+| `syzygy_step_append` | 追加单个步骤 | `unit_id`, `run_id`, `step` |
+| `syzygy_steps_append_batch` | 批量追加步骤 | `unit_id`, `run_id`, `steps` |
+| `syzygy_anchor_set` | 设置数据锚点 | `unit_id`, `run_id`, `key`, `value` |
+| `syzygy_dbcheck_append` | 追加数据库断言 | `unit_id`, `run_id`, `db_check` |
+| `syzygy_crystallize` | 生成固化产物 | `unit_id`, `run_id`, `template`, `output_dir` |
+| `syzygy_replay` | 回放固化用例 | `unit_id`, `run_id`, `env`, `command` |
+| `syzygy_selfcheck` | 自查单元合规性 | `unit_id`, `run_id` |
+| `syzygy_unit_meta_set` | 设置单元元数据 | `unit_id`, `meta` |
+| `syzygy_plan_impacted_units` | 规划受影响的单元 | `changed_files`, `changed_apis`, `changed_tables` |
 
 ### 🔍 syzygy.selfcheck 工具详解
 

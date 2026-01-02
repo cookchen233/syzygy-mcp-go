@@ -149,16 +149,18 @@ AI assistant will automatically call Syzygy MCP tools:
 | Tool | Function                        | Parameters |
 |------|---------------------------------|------------|
 | `syzygy_project_init` | Initialize project runtime config | `project_key`, `env`, `runner_command`, `runner_dir` |
-| `syzygy.unit_start` | Create and start a unit         | `unit_id`, `title`, `env`, `variables` |
-| `syzygy.step_append` | Append single step              | `unit_id`, `run_id`, `step` |
-| `syzygy.steps_append_batch` | Batch append steps              | `unit_id`, `run_id`, `steps` |
-| `syzygy.anchor_set` | Set data anchor                 | `unit_id`, `run_id`, `key`, `value` |
-| `syzygy.dbcheck_append` | Append database assertion       | `unit_id`, `run_id`, `db_check` |
-| `syzygy.crystallize` | Generate crystallized artifacts | `unit_id`, `run_id`, `template`, `output_dir` |
-| `syzygy.replay` | Replay crystallized spec        | `unit_id`, `run_id`, `env`, `command` |
-| `syzygy.selfcheck` | Self-check unit compliance      | `unit_id`, `run_id` |
-| `syzygy.unit_meta_set` | Set unit metadata               | `unit_id`, `meta` |
-| `syzygy.plan_impacted_units` | Plan impacted units             | `changed_files`, `changed_apis`, `changed_tables` |
+| `syzygy_unit_start` | Create and start a unit         | `unit_id`, `title`, `env`, `variables` |
+| `syzygy_step_append` | Append single step              | `unit_id`, `run_id`, `step` |
+| `syzygy_steps_append_batch` | Batch append steps              | `unit_id`, `run_id`, `steps` |
+| `syzygy_anchor_set` | Set data anchor                 | `unit_id`, `run_id`, `key`, `value` |
+| `syzygy_dbcheck_append` | Append database assertion       | `unit_id`, `run_id`, `db_check` |
+| `syzygy_crystallize` | Generate crystallized artifacts | `unit_id`, `run_id`, `template`, `output_dir` |
+| `syzygy_replay` | Replay crystallized spec        | `unit_id`, `run_id`, `env`, `command` |
+| `syzygy_selfcheck` | Self-check unit compliance      | `unit_id`, `run_id` |
+| `syzygy_unit_meta_set` | Set unit metadata               | `unit_id`, `meta` |
+| `syzygy_plan_impacted_units` | Plan impacted units             | `changed_files`, `changed_apis`, `changed_tables` |
+
+> **Note**: Browser automation features have been moved to a separate [playwright-enhanced-mcp](https://github.com/cookchen233/playwright-enhanced-mcp). Use that MCP for UI automation needs.
 
 ### 🔍 syzygy.selfcheck Tool Details
 

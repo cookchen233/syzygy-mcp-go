@@ -22,8 +22,6 @@ _ide_helper.php
 
 # Environment & Config
 .env
-*.config.js
-config.*.js
 .htaccess
 *.pem
 qodana.yaml
@@ -46,13 +44,11 @@ pnpm-lock.yaml
 /logs
 **/*.log
 **/*.log.*
-/aaa-*
 *.pid
 *.cache
 *.caches
 /cache
 /caches
-/mycli/caches
 *.bak
 .phpunit.result.cache
 npm-debug.log*
@@ -70,7 +66,6 @@ debug.log
 /storage
 /media
 /data
-/public/hot
 
 # Build & Development
 /build
@@ -110,5 +105,4 @@ tmp.*
 .cache/
 **/__pycache__/
 *.pyc
-*.iml
-syzygy-artifacts
+AI-Rule.md

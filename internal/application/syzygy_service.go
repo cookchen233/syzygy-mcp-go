@@ -1,11 +1,8 @@
 package application
 
 import (
-	"encoding/json"
-	"fmt"
 	"log"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -232,69 +229,6 @@ func findRun(u *domain.Unit, runID string) (*domain.Run, error) {
 		}
 	}
 	return nil, NewAppError("run_not_found", "run not found")
-}
-
-// SelfCheck performs a comprehensive check on a unit run to verify SYZYGY compliance
-func (s *SyzygyService) PlaywrightRun(code string, mobile bool, headless bool) (any, error) {
-	// 准备执行命令
-	cmd := exec.Command("syzygy-playwright")
-	
-	// 设置环境变量
-	env := os.Environ()
-	if mobile {
-		env = append(env, "MOBILE=1")
-	}
-	if !headless {
-		env = append(env, "HEADLESS=0")
-	}
-	env = append(env, fmt.Sprintf("AGENT_CODE=%s", code))
-	cmd.Env = env
-
-	// Separate stdout and stderr to avoid pollution
-	var stdout, stderr strings.Builder
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-
-	err := cmd.Run()
-	outputStr := stdout.String()
-	errStr := stderr.String()
-
-	// 尝试解析 JSON 结果
-	var result AgentResult
-	lines := strings.Split(outputStr, "\n")
-	foundJson := false
-	for _, line := range lines {
-		trimmed := strings.TrimSpace(line)
-		if strings.HasPrefix(trimmed, "{") && strings.HasSuffix(trimmed, "}") {
-			if err := json.Unmarshal([]byte(trimmed), &result); err == nil {
-				foundJson = true
-				break
-			}
-		}
-	}
-
-	if !foundJson {
-		// Parsing failed, but maybe we have raw output. Return it as is to avoid blocking.
-		// The user prefers proxying even if parsing fails.
-		return map[string]string{
-			"raw_output": outputStr,
-			"stderr":     errStr,
-			"note":       "JSON parsing failed, returning raw output",
-		}, nil
-	}
-
-	if err != nil && result.Error == "" {
-		// If command failed but we got JSON result, check result.Error
-		if result.Error == "" {
-			return nil, fmt.Errorf("agent execution failed: %v, stderr: %s", err, errStr)
-		}
-	}
-
-	if !result.OK {
-		return nil, fmt.Errorf("agent error: %s", result.Error)
-	}
-
-	return result.Data, nil
 }
 
 // SelfCheck performs a comprehensive check on a unit run to verify SYZYGY compliance
