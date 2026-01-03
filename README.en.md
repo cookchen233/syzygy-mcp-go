@@ -46,7 +46,6 @@ Define → Act → Observe → Align → Crystallize
 
 ### Prerequisites
 
-- Go 1.22+
 - Node.js 18+
 - MySQL 5.7+ (for DB assertions)
 - AI assistant with MCP support (e.g., Claude Code, Windsurf)

@@ -46,7 +46,6 @@ Define（定义） → Act（执行） → Observe（观察） → Align（对�
 
 ### 前置要求
 
-- Go 1.22+
 - Node.js 18+
 - MySQL 5.7+ (用于 DB 断言)
 - AI 助手支持 MCP 协议 (如 Claude Code、Windsurf 等)
