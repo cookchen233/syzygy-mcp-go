@@ -2,8 +2,6 @@ package application
 
 import (
 	"log"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -29,12 +27,13 @@ func NewSyzygyService(store Store, logger *log.Logger) *SyzygyService {
 	return &SyzygyService{store: store, logger: logger}
 }
 
-func (s *SyzygyService) UnitStart(unitID, title string, env map[string]any, variables map[string]any) (map[string]any, error) {
-	if _, err := s.EnsureProjectInitialized(); err != nil {
+func (s *SyzygyService) UnitStart(projectKey string, unitID, title string, env map[string]any, variables map[string]any) (map[string]any, error) {
+	projectKey = defaultProjectKey(projectKey)
+	if _, err := s.EnsureProjectInitialized(projectKey); err != nil {
 		return nil, err
 	}
 
-	u, err := s.store.GetOrCreateUnit(unitID, title, env)
+	u, err := s.store.GetOrCreateUnit(projectKey, unitID, title, env)
 	if err != nil {
 		return nil, err
 	}
@@ -58,19 +57,21 @@ func (s *SyzygyService) UnitStart(unitID, title string, env map[string]any, vari
 
 	u.Runs = append(u.Runs, run)
 	u.UpdatedAt = time.Now().UTC()
-	if err := s.store.SaveUnit(u); err != nil {
+	if err := s.store.SaveUnit(projectKey, u); err != nil {
 		return nil, err
 	}
 
 	return map[string]any{"unit_id": unitID, "run_id": runID}, nil
 }
 
-func (s *SyzygyService) ProjectInit(projectKey string, env map[string]any, runnerCommand string, runnerDir string) (map[string]any, error) {
+func (s *SyzygyService) ProjectInit(projectKey string, env map[string]any, runnerCommand string, runnerDir string, artifactsDir string) (map[string]any, error) {
+	projectKey = defaultProjectKey(projectKey)
 	cfg := &ProjectConfig{
 		ProjectKey:    projectKey,
 		Env:           map[string]string{},
 		RunnerCommand: normalizeRunnerCommand(runnerCommand),
 		RunnerDir:     strings.TrimSpace(runnerDir),
+		ArtifactsDir:  strings.TrimSpace(artifactsDir),
 	}
 	for k, v := range env {
 		cfg.Env[k] = anyToString(v)
@@ -89,8 +90,17 @@ func (s *SyzygyService) ProjectInit(projectKey string, env map[string]any, runne
 	}, nil
 }
 
-func (s *SyzygyService) StepAppend(unitID, runID string, step domain.ActionStep) (map[string]any, error) {
-	u, err := s.store.GetUnit(unitID)
+func defaultProjectKey(projectKey string) string {
+	projectKey = strings.TrimSpace(projectKey)
+	if projectKey == "" {
+		return "default"
+	}
+	return projectKey
+}
+
+func (s *SyzygyService) StepAppend(projectKey string, unitID, runID string, step domain.ActionStep) (map[string]any, error) {
+	projectKey = defaultProjectKey(projectKey)
+	u, err := s.store.GetUnit(projectKey, unitID)
 	if err != nil {
 		return nil, err
 	}
@@ -107,15 +117,16 @@ func (s *SyzygyService) StepAppend(unitID, runID string, step domain.ActionStep)
 	step.StepID = stepID
 	run.Steps = append(run.Steps, &step)
 	u.UpdatedAt = time.Now().UTC()
-	if err := s.store.SaveUnit(u); err != nil {
+	if err := s.store.SaveUnit(projectKey, u); err != nil {
 		return nil, err
 	}
 
 	return map[string]any{"step_id": stepID}, nil
 }
 
-func (s *SyzygyService) AnchorSet(unitID, runID, key, value, source string) (map[string]any, error) {
-	u, err := s.store.GetUnit(unitID)
+func (s *SyzygyService) AnchorSet(projectKey string, unitID, runID, key, value, source string) (map[string]any, error) {
+	projectKey = defaultProjectKey(projectKey)
+	u, err := s.store.GetUnit(projectKey, unitID)
 	if err != nil {
 		return nil, err
 	}
@@ -133,14 +144,15 @@ func (s *SyzygyService) AnchorSet(unitID, runID, key, value, source string) (map
 	run.Meta["last_anchor_source"] = source
 
 	u.UpdatedAt = time.Now().UTC()
-	if err := s.store.SaveUnit(u); err != nil {
+	if err := s.store.SaveUnit(projectKey, u); err != nil {
 		return nil, err
 	}
 	return map[string]any{"ok": true}, nil
 }
 
-func (s *SyzygyService) DbCheckAppend(unitID, runID string, check domain.DbCheck) (map[string]any, error) {
-	u, err := s.store.GetUnit(unitID)
+func (s *SyzygyService) DbCheckAppend(projectKey string, unitID, runID string, check domain.DbCheck) (map[string]any, error) {
+	projectKey = defaultProjectKey(projectKey)
+	u, err := s.store.GetUnit(projectKey, unitID)
 	if err != nil {
 		return nil, err
 	}
@@ -156,56 +168,26 @@ func (s *SyzygyService) DbCheckAppend(unitID, runID string, check domain.DbCheck
 	check.CheckID = checkID
 	run.DBChecks = append(run.DBChecks, &check)
 	u.UpdatedAt = time.Now().UTC()
-	if err := s.store.SaveUnit(u); err != nil {
+	if err := s.store.SaveUnit(projectKey, u); err != nil {
 		return nil, err
 	}
 
 	return map[string]any{"dbcheck_id": checkID}, nil
 }
 
-func (s *SyzygyService) GetUnit(unitID string) (*domain.Unit, error) {
-	return s.store.GetUnit(unitID)
+func (s *SyzygyService) GetUnit(projectKey string, unitID string) (*domain.Unit, error) {
+	projectKey = defaultProjectKey(projectKey)
+	return s.store.GetUnit(projectKey, unitID)
 }
 
-func (s *SyzygyService) ListUnitIDs() ([]string, error) {
-	base := s.store.BaseDir()
-	if base == "" {
-		base = os.Getenv("SYZYGY_DATA_DIR")
-	}
-	if base == "" {
-		if home, err := os.UserHomeDir(); err == nil && home != "" {
-			base = filepath.Join(home, ".syzygy-data")
-		}
-	}
-	if base == "" {
-		return []string{}, nil
-	}
-
-	unitsDir := filepath.Join(base, "units")
-	entries, err := os.ReadDir(unitsDir)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return []string{}, nil
-		}
-		return nil, err
-	}
-
-	ids := []string{}
-	for _, e := range entries {
-		if e.IsDir() {
-			continue
-		}
-		name := e.Name()
-		if !strings.HasSuffix(name, ".json") {
-			continue
-		}
-		ids = append(ids, strings.TrimSuffix(name, ".json"))
-	}
-	return ids, nil
+func (s *SyzygyService) ListUnitIDs(projectKey string) ([]string, error) {
+	projectKey = defaultProjectKey(projectKey)
+	return s.store.ListUnitIDs(projectKey)
 }
 
-func (s *SyzygyService) SetUnitMeta(unitID string, meta map[string]any) (map[string]any, error) {
-	u, err := s.store.GetOrCreateUnit(unitID, "", nil)
+func (s *SyzygyService) SetUnitMeta(projectKey string, unitID string, meta map[string]any) (map[string]any, error) {
+	projectKey = defaultProjectKey(projectKey)
+	u, err := s.store.GetOrCreateUnit(projectKey, unitID, "", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -216,7 +198,7 @@ func (s *SyzygyService) SetUnitMeta(unitID string, meta map[string]any) (map[str
 		u.Meta[k] = v
 	}
 	u.UpdatedAt = time.Now().UTC()
-	if err := s.store.SaveUnit(u); err != nil {
+	if err := s.store.SaveUnit(projectKey, u); err != nil {
 		return nil, err
 	}
 	return map[string]any{"ok": true}, nil
@@ -232,8 +214,9 @@ func findRun(u *domain.Unit, runID string) (*domain.Run, error) {
 }
 
 // SelfCheck performs a comprehensive check on a unit run to verify SYZYGY compliance
-func (s *SyzygyService) SelfCheck(unitID, runID string) (map[string]any, error) {
-	u, err := s.store.GetUnit(unitID)
+func (s *SyzygyService) SelfCheck(projectKey string, unitID, runID string) (map[string]any, error) {
+	projectKey = defaultProjectKey(projectKey)
+	u, err := s.store.GetUnit(projectKey, unitID)
 	if err != nil {
 		return nil, err
 	}

@@ -10,8 +10,10 @@ import (
 	"time"
 )
 
-func (s *SyzygyService) Crystallize(unitID, runID, template, outputDir string) (map[string]any, error) {
-	u, err := s.store.GetUnit(unitID)
+func (s *SyzygyService) Crystallize(projectKey string, unitID, runID, template, outputDir string) (map[string]any, error) {
+	projectKey = defaultProjectKey(projectKey)
+	cfg, _ := s.EnsureProjectInitialized(projectKey)
+	u, err := s.store.GetUnit(projectKey, unitID)
 	if err != nil {
 		return nil, err
 	}
@@ -21,7 +23,14 @@ func (s *SyzygyService) Crystallize(unitID, runID, template, outputDir string) (
 	}
 
 	if outputDir == "" {
-		outputDir = filepath.Join("./syzygy-artifacts", unitID, runID)
+		base := ""
+		if cfg != nil {
+			base = strings.TrimSpace(cfg.ArtifactsDir)
+		}
+		if base == "" {
+			base = "./syzygy-artifacts"
+		}
+		outputDir = filepath.Join(base, unitID, runID)
 	}
 	if err := os.MkdirAll(outputDir, 0o755); err != nil {
 		return nil, err
@@ -65,20 +74,21 @@ func (s *SyzygyService) Crystallize(unitID, runID, template, outputDir string) (
 
 	run.Artifacts = paths
 	u.UpdatedAt = time.Now().UTC()
-	if err := s.store.SaveUnit(u); err != nil {
+	if err := s.store.SaveUnit(projectKey, u); err != nil {
 		return nil, err
 	}
 
 	return map[string]any{"artifact_paths": paths}, nil
 }
 
-func (s *SyzygyService) Replay(unitID, runID, command string, args []string, cwd string, env map[string]any) (map[string]any, error) {
-	cfg, err := s.EnsureProjectInitialized()
+func (s *SyzygyService) Replay(projectKey string, unitID, runID, command string, args []string, cwd string, env map[string]any) (map[string]any, error) {
+	projectKey = defaultProjectKey(projectKey)
+	cfg, err := s.EnsureProjectInitialized(projectKey)
 	if err != nil {
 		return nil, err
 	}
 
-	u, err := s.store.GetUnit(unitID)
+	u, err := s.store.GetUnit(projectKey, unitID)
 	if err != nil {
 		return nil, err
 	}
@@ -167,7 +177,7 @@ func (s *SyzygyService) Replay(unitID, runID, command string, args []string, cwd
 	run.Meta["replay_executed_at"] = time.Now().UTC().Format(time.RFC3339)
 	u.UpdatedAt = time.Now().UTC()
 
-	if saveErr := s.store.SaveUnit(u); saveErr != nil {
+	if saveErr := s.store.SaveUnit(projectKey, u); saveErr != nil {
 		s.logger.Printf("Warning: failed to save replay result to meta: %v", saveErr)
 	}
 

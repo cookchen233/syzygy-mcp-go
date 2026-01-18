@@ -77,14 +77,19 @@ npx playwright install
     "syzygy-mcp": {
       "command": "/path/to/syzygy-mcp-go/bin/syzygy-mcp",
       "env": {
-        "SYZYGY_DATA_DIR": "/path/to/your-project/syzygy-data",
-        "SYZYGY_RUNNER_DIR": "/path/to/syzygy-mcp-go/runner-node",
-        "SYZYGY_ARTIFACTS_DIR": "/path/to/your-project/syzygy-artifacts"
+        "SYZYGY_HOME": "/Users/<you>/.syzygy-mcp"
       }
     }
   }
 }
 ```
+
+Notes:
+- Syzygy MCP stores **runtime config and project metadata** under `SYZYGY_HOME` (default: `~/.syzygy-mcp`)
+- Multi-project is isolated by `project_key`:
+  - `~/.syzygy-mcp/projects/<project_key>/config.json`
+  - `~/.syzygy-mcp/projects/<project_key>/units/<unit_id>.json`
+- Project resources (specs / screenshots / HTML dumps, etc.) should not live in `SYZYGY_HOME`. Configure them via `syzygy_project_init(artifacts_dir=...)`.
 
 ---
 
@@ -92,8 +97,8 @@ npx playwright install
 
 ### 0. Initialize Project Runtime Config (Mandatory)
 
-Before using this MCP server, you must call `syzygy_project_init` once to persist project-level runtime config (e.g. BASE_URL / MYSQL_* / artifacts dir / replay engine command).
-Both `syzygy_unit_start` and `syzygy_replay` will strictly enforce that initialization is completed.
+Before using a project (`project_key`), you must call `syzygy_project_init` once to persist project-level runtime config (e.g. BASE_URL / MYSQL_* / artifacts dir / replay engine command).
+Both `syzygy_unit_start` and `syzygy_replay` will strictly enforce that initialization for that `project_key` is completed.
 
 ### 1. Create Unit with AI Assistant
 
@@ -109,10 +114,10 @@ Please use Syzygy paradigm to crystallize "user login" feature:
 ```
 
 AI assistant will automatically call Syzygy MCP tools:
-- `syzygy.unit_start` - Create unit
-- `syzygy.step_append` - Add UI steps
-- `syzygy.dbcheck_append` - Add DB assertions
-- `syzygy.crystallize` - Generate spec.json
+- `syzygy_unit_start` - Create unit
+- `syzygy_step_append` - Add UI steps
+- `syzygy_dbcheck_append` - Add DB assertions
+- `syzygy_crystallize` - Generate spec.json
 
 ### 2. Generated Spec Example
 
@@ -147,23 +152,23 @@ AI assistant will automatically call Syzygy MCP tools:
 
 | Tool | Function                        | Parameters |
 |------|---------------------------------|------------|
-| `syzygy_project_init` | Initialize project runtime config | `project_key`, `env`, `runner_command`, `runner_dir` |
-| `syzygy_unit_start` | Create and start a unit         | `unit_id`, `title`, `env`, `variables` |
-| `syzygy_step_append` | Append single step              | `unit_id`, `run_id`, `step` |
-| `syzygy_steps_append_batch` | Batch append steps              | `unit_id`, `run_id`, `steps` |
-| `syzygy_anchor_set` | Set data anchor                 | `unit_id`, `run_id`, `key`, `value` |
-| `syzygy_dbcheck_append` | Append database assertion       | `unit_id`, `run_id`, `db_check` |
-| `syzygy_crystallize` | Generate crystallized artifacts | `unit_id`, `run_id`, `template`, `output_dir` |
-| `syzygy_replay` | Replay crystallized spec        | `unit_id`, `run_id`, `env`, `command` |
-| `syzygy_selfcheck` | Self-check unit compliance      | `unit_id`, `run_id` |
-| `syzygy_unit_meta_set` | Set unit metadata               | `unit_id`, `meta` |
-| `syzygy_plan_impacted_units` | Plan impacted units             | `changed_files`, `changed_apis`, `changed_tables` |
+| `syzygy_project_init` | Initialize project runtime config | `project_key`, `env`, `runner_command`, `runner_dir`, `artifacts_dir` |
+| `syzygy_unit_start` | Create and start a unit         | `project_key`, `unit_id`, `title`, `env`, `variables` |
+| `syzygy_step_append` | Append single step              | `project_key`, `unit_id`, `run_id`, `step` |
+| `syzygy_steps_append_batch` | Batch append steps              | `project_key`, `unit_id`, `run_id`, `steps` |
+| `syzygy_anchor_set` | Set data anchor                 | `project_key`, `unit_id`, `run_id`, `key`, `value` |
+| `syzygy_dbcheck_append` | Append database assertion       | `project_key`, `unit_id`, `run_id`, `db_check` |
+| `syzygy_crystallize` | Generate crystallized artifacts | `project_key`, `unit_id`, `run_id`, `template`, `output_dir` |
+| `syzygy_replay` | Replay crystallized spec        | `project_key`, `unit_id`, `run_id`, `env`, `command` |
+| `syzygy_selfcheck` | Self-check unit compliance      | `project_key`, `unit_id`, `run_id` |
+| `syzygy_unit_meta_set` | Set unit metadata               | `project_key`, `unit_id`, `meta` |
+| `syzygy_plan_impacted_units` | Plan impacted units             | `project_key`, `changed_files`, `changed_apis`, `changed_tables` |
 
 > **Note**: Browser automation features have been moved to a separate [playwright-enhanced-mcp](https://github.com/cookchen233/playwright-enhanced-mcp). Use that MCP for UI automation needs.
 
-### 🔍 syzygy.selfcheck Tool Details
+### 🔍 syzygy_selfcheck Tool Details
 
-**syzygy.selfcheck** is a mandatory compliance checking tool that validates whether a unit fully complies with Syzygy paradigm requirements.
+**syzygy_selfcheck** is a mandatory compliance checking tool that validates whether a unit fully complies with Syzygy paradigm requirements.
 
 #### Check Items
 - ✅ **Crystallization Complete** - Verifies `syzygy_crystallize` has been executed
@@ -275,24 +280,30 @@ your-project/
 │   ├── check-affected-specs.sh
 │   ├── run-all-specs.sh
 │   └── *.spec.json
-├── syzygy-data/               # Runtime data (gitignored)
-│   └── units/
-└── syzygy-artifacts/          # Failure artifacts (gitignored)
-    └── <timestamp>/
-        ├── screenshot.png
-        ├── page.html
-        └── error.json
+└── syzygy-artifacts/          # Project artifacts root (gitignored)
+    └── <unit_id>/
+        └── <timestamp>/
+            ├── screenshot.png
+            ├── page.html
+            └── error.json
+
+Notes:
+- Specs belong to the project and should be committed to git.
+- Units/config are stored under `SYZYGY_HOME` and isolated by `project_key`.
+- Artifacts are project resources; configure the root via `syzygy_project_init(artifacts_dir=...)`.
 ```
 
 ---
 
 ## 🔧 Environment Variables
 
-### For Crystallization
+### MCP Server
 
-- `SYZYGY_DATA_DIR`: Directory for runtime unit data (default: `./syzygy-data`)
-- `SYZYGY_RUNNER_DIR`: Path to the Replay Engine (runner-node) directory
-- `SYZYGY_ARTIFACTS_DIR`: Directory for artifacts output (default: `./syzygy-artifacts`)
+- `SYZYGY_HOME`: Global storage directory for Syzygy MCP (default: `~/.syzygy-mcp`)
+
+### Project Runtime
+
+These are typically provided via `syzygy_project_init(env=...)` and used during crystallization/replay:
 
 ### For Replay
 

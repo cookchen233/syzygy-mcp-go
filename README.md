@@ -77,13 +77,19 @@ npx playwright install
     "syzygy-mcp": {
       "command": "/path/to/syzygy-mcp-go/bin/syzygy-mcp",
       "env": {
-        "SYZYGY_DATA_DIR": "/path/to/your-project/syzygy-data",
-        "SYZYGY_RUNNER_DIR": "/path/to/syzygy-mcp-go/runner-node"
+        "SYZYGY_HOME": "/Users/<you>/.syzygy-mcp"
       }
     }
   }
 }
 ```
+
+说明：
+- Syzygy MCP 会把**配置与项目元信息**存放在 `SYZYGY_HOME`（默认 `~/.syzygy-mcp`）
+- 多项目通过 `project_key` 分区：
+  - `~/.syzygy-mcp/projects/<project_key>/config.json`
+  - `~/.syzygy-mcp/projects/<project_key>/units/<unit_id>.json`
+- spec/截图等**资源文件**不建议放在 `SYZYGY_HOME`，应通过 `syzygy_project_init(artifacts_dir=...)` 指定
 
 ---
 
@@ -91,8 +97,8 @@ npx playwright install
 
 ### 0. 初始化项目运行配置（强制）
 
-在首次使用本 MCP 前，必须先调用 `syzygy_project_init` 写入项目级运行配置（如 BASE_URL / MYSQL_* / artifacts 目录 / 回放引擎命令）。
-后续 `syzygy_unit_start` 与 `syzygy_replay` 会强制检查该配置是否已初始化。
+在首次使用某个项目（`project_key`）前，必须先调用 `syzygy_project_init` 写入项目级运行配置（如 BASE_URL / MYSQL_* / artifacts 目录 / 回放引擎命令）。
+后续 `syzygy_unit_start` 与 `syzygy_replay` 会强制检查该 `project_key` 是否已初始化。
 
 ### 1. 使用 AI 助手创建单元
 
@@ -108,10 +114,10 @@ npx playwright install
 ```
 
 AI 助手会自动调用 Syzygy MCP 工具：
-- `syzygy.unit_start` - 创建单元
-- `syzygy.step_append` - 添加 UI 步骤
-- `syzygy.dbcheck_append` - 添加 DB 断言
-- `syzygy.crystallize` - 生成 spec.json
+- `syzygy_unit_start` - 创建单元
+- `syzygy_step_append` - 添加 UI 步骤
+- `syzygy_dbcheck_append` - 添加 DB 断言
+- `syzygy_crystallize` - 生成 spec.json
 
 ### 2. 生成的 Spec 示例
 
@@ -146,21 +152,21 @@ AI 助手会自动调用 Syzygy MCP 工具：
 
 | 工具 | 功能 | 参数 |
 |------|------|------|
-| `syzygy_project_init` | 初始化项目运行配置 | `project_key`, `env`, `runner_command`, `runner_dir` |
-| `syzygy_unit_start` | 创建并开始一个单元 | `unit_id`, `title`, `env`, `variables` |
-| `syzygy_step_append` | 追加单个步骤 | `unit_id`, `run_id`, `step` |
-| `syzygy_steps_append_batch` | 批量追加步骤 | `unit_id`, `run_id`, `steps` |
-| `syzygy_anchor_set` | 设置数据锚点 | `unit_id`, `run_id`, `key`, `value` |
-| `syzygy_dbcheck_append` | 追加数据库断言 | `unit_id`, `run_id`, `db_check` |
-| `syzygy_crystallize` | 生成固化产物 | `unit_id`, `run_id`, `template`, `output_dir` |
-| `syzygy_replay` | 回放固化用例 | `unit_id`, `run_id`, `env`, `command` |
-| `syzygy_selfcheck` | 自查单元合规性 | `unit_id`, `run_id` |
-| `syzygy_unit_meta_set` | 设置单元元数据 | `unit_id`, `meta` |
-| `syzygy_plan_impacted_units` | 规划受影响的单元 | `changed_files`, `changed_apis`, `changed_tables` |
+| `syzygy_project_init` | 初始化项目运行配置 | `project_key`, `env`, `runner_command`, `runner_dir`, `artifacts_dir` |
+| `syzygy_unit_start` | 创建并开始一个单元 | `project_key`, `unit_id`, `title`, `env`, `variables` |
+| `syzygy_step_append` | 追加单个步骤 | `project_key`, `unit_id`, `run_id`, `step` |
+| `syzygy_steps_append_batch` | 批量追加步骤 | `project_key`, `unit_id`, `run_id`, `steps` |
+| `syzygy_anchor_set` | 设置数据锚点 | `project_key`, `unit_id`, `run_id`, `key`, `value` |
+| `syzygy_dbcheck_append` | 追加数据库断言 | `project_key`, `unit_id`, `run_id`, `db_check` |
+| `syzygy_crystallize` | 生成固化产物 | `project_key`, `unit_id`, `run_id`, `template`, `output_dir` |
+| `syzygy_replay` | 回放固化用例 | `project_key`, `unit_id`, `run_id`, `env`, `command` |
+| `syzygy_selfcheck` | 自查单元合规性 | `project_key`, `unit_id`, `run_id` |
+| `syzygy_unit_meta_set` | 设置单元元数据 | `project_key`, `unit_id`, `meta` |
+| `syzygy_plan_impacted_units` | 规划受影响的单元 | `project_key`, `changed_files`, `changed_apis`, `changed_tables` |
 
-### 🔍 syzygy.selfcheck 工具详解
+### 🔍 syzygy_selfcheck 工具详解
 
-**syzygy.selfcheck** 是强制合规性检查工具，用于验证单元是否完全符合 Syzygy 范式要求。
+**syzygy_selfcheck** 是强制合规性检查工具，用于验证单元是否完全符合 Syzygy 范式要求。
 
 #### 检查项目
 - ✅ **固化完成** - 验证 `syzygy_crystallize` 已执行

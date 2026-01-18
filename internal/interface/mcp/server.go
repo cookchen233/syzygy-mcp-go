@@ -35,12 +35,12 @@ func NewServer(cfg ServerConfig) *Server {
 		cfg.Logger = log.New(os.Stderr, "syzygy-mcp: ", log.LstdFlags|log.LUTC)
 	}
 
-	dataDir := os.Getenv("SYZYGY_DATA_DIR")
+	dataDir := os.Getenv("SYZYGY_HOME")
 	if dataDir == "" {
 		if home, err := os.UserHomeDir(); err == nil && home != "" {
-			dataDir = filepath.Join(home, ".syzygy-data")
+			dataDir = filepath.Join(home, ".syzygy-mcp")
 		} else {
-			dataDir = "./syzygy-data"
+			dataDir = "./.syzygy-mcp"
 		}
 	}
 

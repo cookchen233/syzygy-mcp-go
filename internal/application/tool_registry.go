@@ -29,6 +29,7 @@ func (r *ToolRegistry) ListTools() []ToolDefinition {
 					"env":            map[string]any{"type": "object"},
 					"runner_command": map[string]any{"type": "string"},
 					"runner_dir":     map[string]any{"type": "string"},
+					"artifacts_dir":  map[string]any{"type": "string"},
 				},
 				"required": []string{},
 			},
@@ -39,6 +40,7 @@ func (r *ToolRegistry) ListTools() []ToolDefinition {
 			InputSchema: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
+					"project_key": map[string]any{"type": "string"},
 					"unit_id":   map[string]any{"type": "string"},
 					"title":     map[string]any{"type": "string"},
 					"env":       map[string]any{"type": "object"},
@@ -53,6 +55,7 @@ func (r *ToolRegistry) ListTools() []ToolDefinition {
 			InputSchema: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
+					"project_key": map[string]any{"type": "string"},
 					"unit_id": map[string]any{"type": "string"},
 					"meta":    map[string]any{"type": "object"},
 				},
@@ -65,6 +68,7 @@ func (r *ToolRegistry) ListTools() []ToolDefinition {
 			InputSchema: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
+					"project_key": map[string]any{"type": "string"},
 					"unit_id":     map[string]any{"type": "string"},
 					"meta":        map[string]any{"type": "object"},
 					"meta_json":   map[string]any{"type": "string"},
@@ -79,6 +83,7 @@ func (r *ToolRegistry) ListTools() []ToolDefinition {
 			InputSchema: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
+					"project_key":    map[string]any{"type": "string"},
 					"changed_files":  map[string]any{"type": "array", "items": map[string]any{"type": "string"}},
 					"changed_apis":   map[string]any{"type": "array", "items": map[string]any{"type": "string"}},
 					"changed_tables": map[string]any{"type": "array", "items": map[string]any{"type": "string"}},
@@ -93,6 +98,7 @@ func (r *ToolRegistry) ListTools() []ToolDefinition {
 			InputSchema: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
+					"project_key": map[string]any{"type": "string"},
 					"unit_id": map[string]any{"type": "string"},
 					"run_id":  map[string]any{"type": "string"},
 					"step":    map[string]any{"type": "object"},
@@ -106,6 +112,7 @@ func (r *ToolRegistry) ListTools() []ToolDefinition {
 			InputSchema: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
+					"project_key": map[string]any{"type": "string"},
 					"unit_id":     map[string]any{"type": "string"},
 					"run_id":      map[string]any{"type": "string"},
 					"step_json":   map[string]any{"type": "string"},
@@ -121,6 +128,7 @@ func (r *ToolRegistry) ListTools() []ToolDefinition {
 			InputSchema: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
+					"project_key": map[string]any{"type": "string"},
 					"unit_id": map[string]any{"type": "string"},
 					"run_id":  map[string]any{"type": "string"},
 					"steps": map[string]any{
@@ -137,6 +145,7 @@ func (r *ToolRegistry) ListTools() []ToolDefinition {
 			InputSchema: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
+					"project_key": map[string]any{"type": "string"},
 					"unit_id": map[string]any{"type": "string"},
 					"run_id":  map[string]any{"type": "string"},
 					"key":     map[string]any{"type": "string"},
@@ -152,6 +161,7 @@ func (r *ToolRegistry) ListTools() []ToolDefinition {
 			InputSchema: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
+					"project_key": map[string]any{"type": "string"},
 					"unit_id":  map[string]any{"type": "string"},
 					"run_id":   map[string]any{"type": "string"},
 					"db_check": map[string]any{"type": "object"},
@@ -165,6 +175,7 @@ func (r *ToolRegistry) ListTools() []ToolDefinition {
 			InputSchema: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
+					"project_key": map[string]any{"type": "string"},
 					"unit_id":    map[string]any{"type": "string"},
 					"run_id":     map[string]any{"type": "string"},
 					"template":   map[string]any{"type": "string"},
@@ -179,6 +190,7 @@ func (r *ToolRegistry) ListTools() []ToolDefinition {
 			InputSchema: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
+					"project_key": map[string]any{"type": "string"},
 					"unit_id": map[string]any{"type": "string"},
 					"run_id":  map[string]any{"type": "string"},
 					"command": map[string]any{"type": "string"},
@@ -198,6 +210,7 @@ func (r *ToolRegistry) ListTools() []ToolDefinition {
 			InputSchema: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
+					"project_key": map[string]any{"type": "string"},
 					"unit_id": map[string]any{"type": "string"},
 					"run_id":  map[string]any{"type": "string"},
 				},
@@ -270,11 +283,13 @@ func (r *ToolRegistry) CallTool(name string, args map[string]any) (any, error) {
 		env, _ := args["env"].(map[string]any)
 		runnerCommand, _ := args["runner_command"].(string)
 		runnerDir, _ := args["runner_dir"].(string)
+		artifactsDir, _ := args["artifacts_dir"].(string)
 		if env == nil {
 			env = map[string]any{}
 		}
-		return r.svc.ProjectInit(projectKey, env, runnerCommand, runnerDir)
+		return r.svc.ProjectInit(projectKey, env, runnerCommand, runnerDir, artifactsDir)
 	case "syzygy_unit_start":
+		projectKey, _ := args["project_key"].(string)
 		unitID, _ := args["unit_id"].(string)
 		title, _ := args["title"].(string)
 		env, _ := args["env"].(map[string]any)
@@ -282,21 +297,23 @@ func (r *ToolRegistry) CallTool(name string, args map[string]any) (any, error) {
 		if unitID == "" {
 			return nil, NewAppError("invalid_unit_id", "unit_id is required")
 		}
-		return r.svc.UnitStart(unitID, title, env, vars)
+		return r.svc.UnitStart(projectKey, unitID, title, env, vars)
 	case "syzygy_unit_meta_set":
+		projectKey, _ := args["project_key"].(string)
 		unitID, _ := args["unit_id"].(string)
 		meta, ok := args["meta"].(map[string]any)
 		if unitID == "" || !ok {
 			return nil, NewAppError("invalid_args", "unit_id and meta are required")
 		}
-		return r.svc.SetUnitMeta(unitID, meta)
+		return r.svc.SetUnitMeta(projectKey, unitID, meta)
 	case "syzygy_unit_meta_set_json":
+		projectKey, _ := args["project_key"].(string)
 		unitID, _ := args["unit_id"].(string)
 		if unitID == "" {
 			return nil, NewAppError("invalid_args", "unit_id is required")
 		}
 		if meta, ok := args["meta"].(map[string]any); ok {
-			return r.svc.SetUnitMeta(unitID, meta)
+			return r.svc.SetUnitMeta(projectKey, unitID, meta)
 		}
 		metaJSON, _ := args["meta_json"].(string)
 		if metaJSON == "" {
@@ -315,21 +332,22 @@ func (r *ToolRegistry) CallTool(name string, args map[string]any) (any, error) {
 		if err := json.Unmarshal([]byte(metaJSON), &meta); err != nil {
 			return nil, NewAppError("invalid_meta_json", fmt.Sprintf("invalid meta_json: %v", err))
 		}
-		return r.svc.SetUnitMeta(unitID, meta)
+		return r.svc.SetUnitMeta(projectKey, unitID, meta)
 	case "syzygy_plan_impacted_units":
 		changedFiles := toStringSliceAny(args["changed_files"])
 		changedApis := toStringSliceAny(args["changed_apis"])
 		changedTables := toStringSliceAny(args["changed_tables"])
 		wantedTags := toStringSliceAny(args["tags"])
 
-		unitIDs, err := r.svc.ListUnitIDs()
+		projectKey, _ := args["project_key"].(string)
+		unitIDs, err := r.svc.ListUnitIDs(projectKey)
 		if err != nil {
 			return nil, err
 		}
 
 		out := []map[string]any{}
 		for _, uid := range unitIDs {
-			u, err := r.svc.GetUnit(uid)
+			u, err := r.svc.GetUnit(projectKey, uid)
 			if err != nil {
 				continue
 			}
@@ -374,10 +392,11 @@ func (r *ToolRegistry) CallTool(name string, args map[string]any) (any, error) {
 		}
 		return map[string]any{"impacted_units": out}, nil
 	case "syzygy_step_append":
+		projectKey, _ := args["project_key"].(string)
 		unitID, _ := args["unit_id"].(string)
 		runID, _ := args["run_id"].(string)
 		if runID == "" {
-			u, err := r.svc.GetUnit(unitID)
+			u, err := r.svc.GetUnit(projectKey, unitID)
 			if err == nil {
 				runID = latestRunID(u)
 			}
@@ -387,12 +406,13 @@ func (r *ToolRegistry) CallTool(name string, args map[string]any) (any, error) {
 			return nil, NewAppError("invalid_step", "step must be object; missing or wrong type")
 		}
 		step := parseActionStepFromMap(stepRaw)
-		return r.svc.StepAppend(unitID, runID, step)
+		return r.svc.StepAppend(projectKey, unitID, runID, step)
 	case "syzygy_step_append_json":
+		projectKey, _ := args["project_key"].(string)
 		unitID, _ := args["unit_id"].(string)
 		runID, _ := args["run_id"].(string)
 		if runID == "" {
-			u, err := r.svc.GetUnit(unitID)
+			u, err := r.svc.GetUnit(projectKey, unitID)
 			if err == nil {
 				runID = latestRunID(u)
 			}
@@ -400,7 +420,7 @@ func (r *ToolRegistry) CallTool(name string, args map[string]any) (any, error) {
 		// Prefer step object if provided
 		if stepRaw, ok := args["step"].(map[string]any); ok {
 			step := parseActionStepFromMap(stepRaw)
-			return r.svc.StepAppend(unitID, runID, step)
+			return r.svc.StepAppend(projectKey, unitID, runID, step)
 		}
 
 		stepJSON, _ := args["step_json"].(string)
@@ -421,12 +441,13 @@ func (r *ToolRegistry) CallTool(name string, args map[string]any) (any, error) {
 			return nil, NewAppError("invalid_step_json", fmt.Sprintf("invalid step_json: %v", err))
 		}
 		step := parseActionStepFromMap(raw)
-		return r.svc.StepAppend(unitID, runID, step)
+		return r.svc.StepAppend(projectKey, unitID, runID, step)
 	case "syzygy_steps_append_batch":
+		projectKey, _ := args["project_key"].(string)
 		unitID, _ := args["unit_id"].(string)
 		runID, _ := args["run_id"].(string)
 		if runID == "" {
-			u, err := r.svc.GetUnit(unitID)
+			u, err := r.svc.GetUnit(projectKey, unitID)
 			if err == nil {
 				runID = latestRunID(u)
 			}
@@ -442,7 +463,7 @@ func (r *ToolRegistry) CallTool(name string, args map[string]any) (any, error) {
 				return nil, NewAppError("invalid_steps", "each step must be object")
 			}
 			step := parseActionStepFromMap(m)
-			res, err := r.svc.StepAppend(unitID, runID, step)
+			res, err := r.svc.StepAppend(projectKey, unitID, runID, step)
 			if err != nil {
 				return nil, err
 			}
@@ -452,17 +473,19 @@ func (r *ToolRegistry) CallTool(name string, args map[string]any) (any, error) {
 		}
 		return map[string]any{"step_ids": stepIDs}, nil
 	case "syzygy_anchor_set":
+		projectKey, _ := args["project_key"].(string)
 		unitID, _ := args["unit_id"].(string)
 		runID, _ := args["run_id"].(string)
 		key, _ := args["key"].(string)
 		value, _ := args["value"].(string)
 		source, _ := args["source"].(string)
-		return r.svc.AnchorSet(unitID, runID, key, value, source)
+		return r.svc.AnchorSet(projectKey, unitID, runID, key, value, source)
 	case "syzygy_dbcheck_append":
+		projectKey, _ := args["project_key"].(string)
 		unitID, _ := args["unit_id"].(string)
 		runID, _ := args["run_id"].(string)
 		if runID == "" {
-			u, err := r.svc.GetUnit(unitID)
+			u, err := r.svc.GetUnit(projectKey, unitID)
 			if err == nil {
 				runID = latestRunID(u)
 			}
@@ -491,12 +514,13 @@ func (r *ToolRegistry) CallTool(name string, args map[string]any) (any, error) {
 		if v, ok := checkRaw["assert"].(map[string]any); ok {
 			check.Assert = v
 		}
-		return r.svc.DbCheckAppend(unitID, runID, check)
+		return r.svc.DbCheckAppend(projectKey, unitID, runID, check)
 	case "syzygy_crystallize":
+		projectKey, _ := args["project_key"].(string)
 		unitID, _ := args["unit_id"].(string)
 		runID, _ := args["run_id"].(string)
 		if runID == "" {
-			u, err := r.svc.GetUnit(unitID)
+			u, err := r.svc.GetUnit(projectKey, unitID)
 			if err == nil {
 				runID = latestRunID(u)
 			}
@@ -506,12 +530,13 @@ func (r *ToolRegistry) CallTool(name string, args map[string]any) (any, error) {
 		if unitID == "" || runID == "" {
 			return nil, NewAppError("invalid_args", "unit_id and run_id are required")
 		}
-		return r.svc.Crystallize(unitID, runID, tpl, outDir)
+		return r.svc.Crystallize(projectKey, unitID, runID, tpl, outDir)
 	case "syzygy_replay":
+		projectKey, _ := args["project_key"].(string)
 		unitID, _ := args["unit_id"].(string)
 		runID, _ := args["run_id"].(string)
 		if runID == "" {
-			u, err := r.svc.GetUnit(unitID)
+			u, err := r.svc.GetUnit(projectKey, unitID)
 			if err == nil {
 				runID = latestRunID(u)
 			}
@@ -529,12 +554,13 @@ func (r *ToolRegistry) CallTool(name string, args map[string]any) (any, error) {
 		if unitID == "" || runID == "" {
 			return nil, NewAppError("invalid_args", "unit_id and run_id are required")
 		}
-		return r.svc.Replay(unitID, runID, cmd, argv, cwd, env)
+		return r.svc.Replay(projectKey, unitID, runID, cmd, argv, cwd, env)
 	case "syzygy_selfcheck":
+		projectKey, _ := args["project_key"].(string)
 		unitID, _ := args["unit_id"].(string)
 		runID, _ := args["run_id"].(string)
 		if runID == "" {
-			u, err := r.svc.GetUnit(unitID)
+			u, err := r.svc.GetUnit(projectKey, unitID)
 			if err == nil {
 				runID = latestRunID(u)
 			}
@@ -542,7 +568,7 @@ func (r *ToolRegistry) CallTool(name string, args map[string]any) (any, error) {
 		if unitID == "" || runID == "" {
 			return nil, NewAppError("invalid_args", "unit_id and run_id are required")
 		}
-		return r.svc.SelfCheck(unitID, runID)
+		return r.svc.SelfCheck(projectKey, unitID, runID)
 	default:
 		return nil, NewAppError("tool_not_implemented", "tool not implemented: "+name)
 	}

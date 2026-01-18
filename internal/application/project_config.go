@@ -14,22 +14,23 @@ type ProjectConfig struct {
 	Env           map[string]string `json:"env"`
 	RunnerCommand string            `json:"runner_command"`
 	RunnerDir     string            `json:"runner_dir"`
+	ArtifactsDir  string            `json:"artifacts_dir"`
 	UpdatedAt     string            `json:"updated_at"`
 }
 
-func (s *SyzygyService) projectConfigPath() (string, error) {
+func (s *SyzygyService) projectConfigPath(projectKey string) (string, error) {
 	base := s.store.BaseDir()
 	if base == "" {
-		base = os.Getenv("SYZYGY_DATA_DIR")
+		base = os.Getenv("SYZYGY_HOME")
 	}
 	if base == "" {
-		return "", fmt.Errorf("SYZYGY_DATA_DIR is empty")
+		return "", fmt.Errorf("SYZYGY_HOME is empty")
 	}
-	return filepath.Join(base, "project", "config.json"), nil
+	return filepath.Join(base, "projects", safeProjectKey(projectKey), "config.json"), nil
 }
 
-func (s *SyzygyService) LoadProjectConfig() (*ProjectConfig, error) {
-	p, err := s.projectConfigPath()
+func (s *SyzygyService) LoadProjectConfig(projectKey string) (*ProjectConfig, error) {
+	p, err := s.projectConfigPath(projectKey)
 	if err != nil {
 		return nil, err
 	}
@@ -51,7 +52,7 @@ func (s *SyzygyService) SaveProjectConfig(cfg *ProjectConfig) (string, error) {
 	if cfg == nil {
 		return "", fmt.Errorf("nil config")
 	}
-	p, err := s.projectConfigPath()
+	p, err := s.projectConfigPath(cfg.ProjectKey)
 	if err != nil {
 		return "", err
 	}
@@ -73,8 +74,8 @@ func (s *SyzygyService) SaveProjectConfig(cfg *ProjectConfig) (string, error) {
 	return p, nil
 }
 
-func (s *SyzygyService) EnsureProjectInitialized() (*ProjectConfig, error) {
-	cfg, err := s.LoadProjectConfig()
+func (s *SyzygyService) EnsureProjectInitialized(projectKey string) (*ProjectConfig, error) {
+	cfg, err := s.LoadProjectConfig(projectKey)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, NewAppError("project_not_initialized", "project config not found; call syzygy_project_init first")
@@ -82,6 +83,17 @@ func (s *SyzygyService) EnsureProjectInitialized() (*ProjectConfig, error) {
 		return nil, err
 	}
 	return cfg, nil
+}
+
+func safeProjectKey(projectKey string) string {
+	k := strings.TrimSpace(projectKey)
+	if k == "" {
+		return "default"
+	}
+	k = strings.ReplaceAll(k, "..", "")
+	k = strings.ReplaceAll(k, string(filepath.Separator), "-")
+	k = strings.ReplaceAll(k, "/", "-")
+	return k
 }
 
 func anyToString(v any) string {
