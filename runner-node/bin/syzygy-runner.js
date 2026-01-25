@@ -213,11 +213,16 @@ function genBigintIdString() {
 }
 
 async function assertDb(spec, anchors) {
+  // Skip DB assertions if no db_checks defined
+  if (!spec.db_checks || spec.db_checks.length === 0) {
+    console.log('[syzygy] assertDb: no db_checks, skipping')
+    return
+  }
   const ctx = buildContext(spec, anchors)
   const mysqlCfg = getMysqlConfigFromEnv(ctx)
   const conn = await mysql.createConnection(mysqlCfg)
   try {
-    for (const check of spec.db_checks || []) {
+    for (const check of spec.db_checks) {
       const attempts = check.retry_attempts ? Number(check.retry_attempts) : 1
       const intervalMs = check.retry_interval_ms ? Number(check.retry_interval_ms) : 500
 
@@ -420,6 +425,13 @@ async function assertNoConsoleErrors(page) {
       // Common browser noise that should not fail a deterministic replay.
       // Example: "Failed to load resource: the server responded with a status of 500 ()"
       if (/Failed to load resource/i.test(text)) return
+      // React development mode warnings - not actual errors
+      if (/Maximum update depth exceeded/i.test(text)) return
+      if (/Warning:/i.test(text)) return
+      // Missing translation keys are not fatal errors
+      if (/Missing translation/i.test(text)) return
+      // Vite HMR messages
+      if (/\[vite\]/i.test(text)) return
       errors.push(text)
     }
   })

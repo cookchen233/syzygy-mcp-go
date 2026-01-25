@@ -102,9 +102,25 @@ func (s *Server) handle(req JSONRPCRequest) *JSONRPCResponse {
 
 	s.cfg.Logger.Printf("rpc method=%s id=%v", req.Method, req.ID)
 
+	// Notifications (no id) must not produce any response.
+	if req.ID == nil {
+		switch req.Method {
+		case "initialized":
+			return nil
+		default:
+			return nil
+		}
+	}
+
 	switch req.Method {
 	case "initialize":
 		resp := s.handleInitialize(req)
+		return &resp
+	case "prompts/list":
+		resp := NewResultResponse(req.ID, map[string]any{"prompts": []any{}})
+		return &resp
+	case "resources/list":
+		resp := NewResultResponse(req.ID, map[string]any{"resources": []any{}})
 		return &resp
 	case "tools/list":
 		resp := s.handleToolsList(req)
@@ -126,6 +142,8 @@ func (s *Server) handleInitialize(req JSONRPCRequest) JSONRPCResponse {
 			"version": s.cfg.Version,
 		},
 		"capabilities": map[string]any{
+			"resources": map[string]any{},
+			"prompts":   map[string]any{},
 			"tools": map[string]any{},
 		},
 	}

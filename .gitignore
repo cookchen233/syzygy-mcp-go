@@ -105,4 +105,4 @@ tmp.*
 .cache/
 **/__pycache__/
 *.pyc
-AI-Rule.md
+ai-rule.md
